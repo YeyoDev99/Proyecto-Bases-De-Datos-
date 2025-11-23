@@ -1,138 +1,131 @@
-from django.forms import ModelForm
-from django.contrib.auth.forms import UserCreationForm
-from .models import Persona, Empleados, Roles, Departamentos, Especialidades
 from django import forms
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from .models import (
+    Persona, Empleados, Pacientes, Citas, Historias_Clinicas, Equipamiento,
+    Inventario_Farmacia, Sedes_Hospitalarias, Departamentos
+)
 
-class PersonaRegistrationForm(UserCreationForm):
+# ====================================================================
+# 1. FORMULARIOS DE AUTENTICACIÓN Y REGISTRO (Basado en Persona)
+# ====================================================================
+
+class PersonaCreationForm(UserCreationForm):
     """
-    Formulario de registro de PERSONA que también crea un registro en EMPLEADOS.
-    Nota: En un HIS real, este formulario solo debería ser accesible por administradores.
+    Formulario personalizado para la creación de un nuevo usuario (Persona).
+    Hereda de UserCreationForm, pero añade campos específicos de Persona.
     """
-    # Campos heredados de AbstractUser que queremos personalizar en la UI
-    password1 = forms.CharField(
-        label= "Contraseña",
-        widget=forms.PasswordInput(attrs={'class':'form-control', 'type':'password','placeholder':'Contraseña', 'id': 'password'}),
-    )
-    password2 = forms.CharField(
-        label="Confirmar Contraseña",
-        widget=forms.PasswordInput(attrs={'class':'form-control', 'type':'password', 'placeholder':'Confirmar Contraseña'}),
-    )
+    class Meta(UserCreationForm.Meta):
+        # Aseguramos que el modelo usado sea el correcto: Persona
+        model = Persona 
+        fields = UserCreationForm.Meta.fields + (
+            'email', 'tipo_doc', 'num_doc', 'fecha_nac', 'genero',
+            'direccion', 'celular', 'ciudad_residencia',
+        )
+        # Hacemos que 'username' no sea obligatorio en el formulario
+        # ya que la autenticación es por email (USERNAME_FIELD='email')
+        exclude = ('username',) 
 
-    # Campos específicos del modelo PERSONA
-    first_name = forms.CharField(label="Nombres", widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombres del Empleado'}))
-    last_name = forms.CharField(label="Apellidos", widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellidos del Empleado'}))
-    
-    tipo_doc = forms.ChoiceField(label="Tipo de Documento", choices=Persona.TIPO_DOCS, widget=forms.Select(attrs={'class': 'form-select'}))
-    num_doc = forms.CharField(label="Número de Documento", widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 123456789'}))
-    fecha_nac = forms.DateField(label="Fecha de Nacimiento", widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}))
-    genero = forms.ChoiceField(label="Género", choices=Persona.genero.field.choices, widget=forms.Select(attrs={'class': 'form-select'}))
-    
-    direccion = forms.CharField(label="Dirección", required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Dirección de Residencia'}))
-    celular = forms.CharField(label="Celular", required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Número de contacto válido'}))
-    ciudad_residencia = forms.CharField(label="Ciudad", required=False, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ciudad de Residencia'}))
-
-    # Campos específicos para crear la entidad EMPLEADOS (Foreign Keys)
-    # Usamos ModelChoiceField para cargar las opciones de las tablas lookup
-    id_rol = forms.ModelChoiceField(
-        queryset=Roles.objects.all(),
-        label="Rol / Cargo",
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        empty_label="Seleccione el Rol",
-        help_text="Rol asignado al empleado (Médico, Admin, etc.)"
-    )
-    id_dept = forms.ModelChoiceField(
-        queryset=Departamentos.objects.all(),
-        label="Departamento / Área",
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        empty_label="Seleccione el Departamento",
-        required=False
-    )
-    id_especialidad = forms.ModelChoiceField(
-        queryset=Especialidades.objects.all(),
-        label="Especialidad (Si es médico)",
-        widget=forms.Select(attrs={'class': 'form-select'}),
-        empty_label="No aplica (Otro rol)",
-        required=False
-    )
-
+class PersonaChangeForm(UserChangeForm):
+    """
+    Formulario personalizado para la edición de un usuario (Persona).
+    """
     class Meta:
+        # Aseguramos que el modelo usado sea el correcto: Persona
         model = Persona
-        # Se listan todos los campos del modelo Persona + los de autenticación
-        fields = (
-            'email', 'first_name', 'last_name', 'tipo_doc', 'num_doc', 
-            'fecha_nac', 'genero', 'direccion', 'celular', 'ciudad_residencia', 
-            'id_rol', 'id_dept', 'id_especialidad', 'password1', 'password2'
-        )
-        widgets= {
-            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Correo electrónico único'}),
-        }
-        
-    def save(self, commit=True):
-        """
-        Guarda la Persona base y luego crea el objeto Empleado asociado.
-        """
-        # 1. Guarda la Persona (AbstractUser)
-        persona = super().save(commit=False)
-        
-        # 2. Guarda la Persona en la BD
-        if commit:
-            persona.save()
-            
-        # 3. Crea el registro en la tabla Empleados, usando la Persona como llave PK/FK
-        empleado = Empleados.objects.create(
-            persona=persona,
-            id_rol=self.cleaned_data['id_rol'],
-            id_dept=self.cleaned_data['id_dept'],
-            id_especialidad=self.cleaned_data['id_especialidad'],
-            activo=True # Por defecto, activo al crearse
-        )
-        
-        return empleado
+        fields = ('first_name', 'last_name', 'email', 'tipo_doc', 'num_doc', 'fecha_nac', 
+                  'genero', 'direccion', 'celular', 'ciudad_residencia', 'is_active')
 
-# --- Formularios de Gestión Clínica ---
 
-class GestionCitasForm(ModelForm):
+# ====================================================================
+# 2. FORMULARIOS DE MÓDULOS CLÍNICOS Y GESTIÓN
+# ====================================================================
+
+class GestionCitasForm(forms.ModelForm):
     """
-    Formulario base para la gestión de citas médicas.
+    Formulario para la gestión de citas.
     """
-    # Usamos CharField con DateInput y TimeInput para mayor control en la UI
-    fecha_hora = forms.DateTimeField(
-        label="Fecha y Hora de la Cita",
-        widget=forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
-        input_formats=['%Y-%m-%dT%H:%M']
-    )
-    
-    # Solo cargar médicos (empleados con el rol "Médico")
+    # Filtramos los empleados para que solo muestre Médicos para la asignación
     id_emp = forms.ModelChoiceField(
         queryset=Empleados.objects.filter(id_rol__nombre_rol='Médico'),
         label="Médico Asignado",
+        required=True
+    )
+    # Mostramos los pacientes por su nombre y documento
+    cod_pac = forms.ModelChoiceField(
+        queryset=Pacientes.objects.all().select_related('persona'),
+        label="Paciente",
+        required=True,
+        # Usamos una función lambda para mostrar el nombre completo y el documento
+        to_field_name=None,
         widget=forms.Select(attrs={'class': 'form-select'}),
-        empty_label="Seleccione un Médico"
+        empty_label="Seleccione un Paciente"
     )
 
     class Meta:
-        from .models import Citas
         model = Citas
         fields = ['cod_pac', 'id_emp', 'id_dept', 'fecha_hora', 'tipo_servicio', 'estado']
-        
         widgets = {
-            'cod_pac': forms.Select(attrs={'class': 'form-select'}), # Se llenará con JavaScript si es necesario, o se deja como ModelSelect
-            'id_dept': forms.Select(attrs={'class': 'form-select'}),
-            'tipo_servicio': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Consulta General, Control Post-operatorio'}),
-            'estado': forms.Select(attrs={'class': 'form-select'}),
+            'fecha_hora': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+            'tipo_servicio': forms.TextInput(attrs={'placeholder': 'Ej: Consulta General, Control'})
         }
 
-class HistoriaClinicaForm(ModelForm):
+class HistoriaClinicaForm(forms.ModelForm):
     """
-    Formulario para el registro o actualización de la historia clínica asociada a una cita.
+    Formulario para el registro de una Historia Clínica después de una Cita.
     """
     class Meta:
-        from .models import Historias_Clinicas
         model = Historias_Clinicas
-        fields = ['motivo_consulta', 'diagnostico', 'observaciones']
-        
+        # El campo id_cita debe ser autocompletado o filtrado
+        fields = ['id_cita', 'motivo_consulta', 'diagnostico', 'observaciones']
         widgets = {
-            'motivo_consulta': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'diagnostico': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
-            'observaciones': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'motivo_consulta': forms.Textarea(attrs={'rows': 3}),
+            'diagnostico': forms.Textarea(attrs={'rows': 4}),
+            'observaciones': forms.Textarea(attrs={'rows': 3}),
+        }
+
+# ====================================================================
+# 3. FORMULARIOS DE RECURSOS Y LOGÍSTICA
+# ====================================================================
+
+class EquipamientoForm(forms.ModelForm):
+    """
+    Formulario para la gestión de equipos hospitalarios.
+    """
+    class Meta:
+        model = Equipamiento
+        fields = ['nom_eq', 'marca_modelo', 'id_dept', 'estado_equipo', 'fecha_ultimo_maint', 'responsable_id']
+        widgets = {
+            'fecha_ultimo_maint': forms.DateInput(attrs={'type': 'date'}),
+        }
+
+class InventarioFarmaciaForm(forms.ModelForm):
+    """
+    Formulario para la actualización del stock de inventario por sede.
+    """
+    class Meta:
+        model = Inventario_Farmacia
+        fields = ['id_sede', 'cod_med', 'stock_actual']
+        # Los campos cod_med e id_sede juntos deben ser únicos, 
+        # Django lo maneja automáticamente si no se cambia la queryset.
+
+class SedeHospitalariaForm(forms.ModelForm):
+    """
+    Formulario para la gestión de Sedes Hospitalarias.
+    """
+    class Meta:
+        model = Sedes_Hospitalarias
+        fields = ['nom_sede', 'ciudad', 'direccion', 'telefono', 'es_nodo_central']
+        widgets = {
+            'es_nodo_central': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+class DepartamentoForm(forms.ModelForm):
+    """
+    Formulario para la gestión de Departamentos.
+    """
+    class Meta:
+        model = Departamentos
+        fields = ['nom_dept', 'id_sede']
+        widgets = {
+            'id_sede': forms.Select(attrs={'class': 'form-select'}),
         }

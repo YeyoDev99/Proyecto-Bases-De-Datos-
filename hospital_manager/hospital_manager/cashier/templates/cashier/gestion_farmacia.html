@@ -1,0 +1,74 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
+
+    <!-- TÍTULO PRINCIPAL -->
+    <h1 class="log-in h1">Gestión de Inventario Farmacéutico</h1>
+    <h3 class="log-in h3 mb-4">Control de stock de medicamentos por sede</h3>
+
+    <!-- MENSAJES -->
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-{{ m.tags }} alert-dismissible fade show w-75" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- CONTENEDOR DE LA TABLA -->
+    <div class="identification w-100 p-4 mb-5 bg-white shadow-lg rounded-3">
+        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+            <h4 class="log_title">Stock Actual</h4>
+            <a href="#" class="btn btn-success btn-sm"><i class="bi bi-plus-circle me-1"></i> Añadir Nuevo Medicamento</a>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th scope="col">Código</th>
+                        <th scope="col">Medicamento</th>
+                        <th scope="col">Sede</th>
+                        <th scope="col" class="text-center">Stock Actual</th>
+                        <th scope="col" class="text-center">Última Actualización</th>
+                        <th scope="col" class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventario %}
+                    <tr class="{% if item.stock_actual < 20 %}table-warning{% endif %}">
+                        <td>{{ item.cod_med.cod_med }}</td>
+                        <td>
+                            <p class="fw-bold mb-0">{{ item.cod_med.nom_med }}</p>
+                            <p class="text-muted small mb-0">{{ item.cod_med.descripcion|truncatechars:50 }}</p>
+                        </td>
+                        <td>{{ item.id_sede.nom_sede }} ({{ item.id_sede.ciudad }})</td>
+                        <td class="text-center">
+                            <span class="badge rounded-pill bg-{% if item.stock_actual < 10 %}danger{% elif item.stock_actual < 50 %}warning text-dark{% else %}success{% endif %}">
+                                {{ item.stock_actual }}
+                            </span>
+                        </td>
+                        <td class="text-center">{{ item.fecha_actualizacion|date:"d M Y H:i" }}</td>
+                        <td class="text-center">
+                            <a href="{% url 'cashier:actualizar_stock' item.pk %}" class="btn btn-sm btn-info text-white me-2" title="Actualizar Stock">
+                                <i class="bi bi-pencil-square"></i>
+                            </a>
+                            <a href="#" class="btn btn-sm btn-danger" title="Eliminar/Dar de Baja">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-4">No hay elementos en el inventario que coincidan con su búsqueda o filtros.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</section>
+{% endblock content %}

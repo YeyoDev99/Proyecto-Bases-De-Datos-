@@ -1,0 +1,152 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
+
+    <!-- TÍTULO PRINCIPAL -->
+    <h1 class="log-in h1">Programación de Citas</h1>
+    <h3 class="log-in h3 mb-4">Selecciona el servicio y la disponibilidad</h3>
+
+    <!-- MENSAJES (Ej. confirmación de cita) -->
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-info alert-dismissible fade show w-75" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- FORMULARIO DE PROGRAMACIÓN (Usando la tarjeta identification) -->
+    <form method="POST" action="{% url 'cashier:programar_cita' %}" class="identification w-75 p-4 bg-white shadow-lg">
+        {% csrf_token %}
+
+        <h4 class="log_title mb-4">Paso 1: Paciente y Servicio</h4>
+
+        <!-- CAMPO 1: PACIENTE (Asumiendo que se pasa un paciente preseleccionado o se usa un select) -->
+        <div class="mb-4">
+            <label for="paciente_id" class="title form-label">Paciente</label>
+            <!-- Este campo podría ser un input disabled si viene de la vista de paciente, o un select/datalist -->
+            <input type="text" id="paciente_display" class="form-control text" value="{{ paciente.first_name }} {{ paciente.last_name }} ({{ paciente.num_doc }})" disabled>
+            <input type="hidden" name="paciente_id" value="{{ paciente.cod_pac }}">
+        </div>
+
+        <!-- CAMPO 2: DEPARTAMENTO / ESPECIALIDAD -->
+        <div class="mb-4">
+            <label for="departamento_id" class="title form-label">Especialidad / Departamento</label>
+            <select name="departamento_id" id="departamento_id" class="form-select form-control text" required>
+                <option value="" class="text">--- Seleccione el Departamento ---</option>
+                {% for dept in departamentos %}
+                    <option value="{{ dept.id_dept }}" class="text">{{ dept.nom_dept }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- CAMPO 3: TIPO DE SERVICIO -->
+        <div class="mb-4">
+            <label for="tipo_servicio" class="title form-label">Tipo de Servicio</label>
+            <select name="tipo_servicio" id="tipo_servicio" class="form-select form-control text" required>
+                <option value="" class="text">--- Seleccione Tipo de Servicio ---</option>
+                <option value="Consulta Externa" class="text">Consulta Externa</option>
+                <option value="Control" class="text">Control</option>
+                <option value="Revisión Post-Operatoria" class="text">Revisión Post-Operatoria</option>
+                <!-- Otros tipos de servicio que maneje el sistema -->
+            </select>
+        </div>
+
+        <h4 class="log_title mt-5 mb-4">Paso 2: Médico y Horario</h4>
+        
+        <!-- CAMPO 4: MÉDICO (Se llenará dinámicamente con JS) -->
+        <div class="mb-4">
+            <label for="medico_id" class="title form-label">Médico Disponible</label>
+            <select name="medico_id" id="medico_id" class="form-select form-control text" required disabled>
+                <option value="" class="text">--- Primero seleccione un Departamento ---</option>
+                <!-- Opciones de médicos se cargarán aquí -->
+            </select>
+            <small class="form-text text-muted text">Solo se muestran médicos disponibles en la sede actual.</small>
+        </div>
+
+        <!-- CAMPO 5: FECHA Y HORA -->
+        <div class="row mb-5">
+            <div class="col-md-6 mb-3">
+                <label for="fecha" class="title form-label">Fecha de la Cita</label>
+                <input type="date" name="fecha" id="fecha" class="form-control text" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="hora" class="title form-label">Hora Estimada (ej. 10:30)</label>
+                <input type="time" name="hora" id="hora" class="form-control text" step="1800" required>
+                <small class="form-text text-muted text">Intervalos de 30 minutos.</small>
+            </div>
+        </div>
+
+
+        <!-- BOTONES DE ACCIÓN -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <a href="{% url 'cashier:gestion_pacientes' %}" class="btn btn-outline-secondary btn-lg me-md-2">
+                <i class="bi bi-x-circle me-1"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-calendar-check me-1"></i> Confirmar Cita
+            </button>
+        </div>
+    </form>
+
+</section>
+{% endblock content %}
+
+<!-- Bloque de JavaScript para manejo de disponibilidad (Simulado) -->
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const departamentoSelect = document.getElementById('departamento_id');
+        const medicoSelect = document.getElementById('medico_id');
+
+        // Función para simular la carga de médicos por departamento
+        function cargarMedicos(departamentoId) {
+            // En un entorno real, aquí harías una petición AJAX/Fetch a una URL como '/api/medicos/disponibles/' + departamentoId
+            
+            // Simulación de datos:
+            const medicosDisponibles = {
+                // ID del Departamento 1 (Cardiología)
+                '1': [
+                    { id: 101, nombre: 'Dr(a). Ana Gómez' },
+                    { id: 102, nombre: 'Dr. Luis Pérez' }
+                ],
+                // ID del Departamento 2 (Pediatría)
+                '2': [
+                    { id: 201, nombre: 'Dr(a). Clara Soto' }
+                ],
+                // Si no hay médicos
+                'default': []
+            };
+
+            // Limpiar y resetear el campo de médico
+            medicoSelect.innerHTML = '<option value="" class="text">--- Seleccione el Médico ---</option>';
+            medicoSelect.disabled = true;
+
+            const medicos = medicosDisponibles[departamentoId] || medicosDisponibles['default'];
+            
+            if (medicos.length > 0) {
+                medicos.forEach(medico => {
+                    const option = document.createElement('option');
+                    option.value = medico.id;
+                    option.textContent = medico.nombre;
+                    option.classList.add('text'); // Aplicar la clase 'text'
+                    medicoSelect.appendChild(option);
+                });
+                medicoSelect.disabled = false;
+            } else if (departamentoId !== '') {
+                medicoSelect.innerHTML = '<option value="" class="text">--- No hay médicos disponibles ---</option>';
+            }
+        }
+
+        // Listener para el cambio de departamento
+        departamentoSelect.addEventListener('change', function() {
+            cargarMedicos(this.value);
+        });
+
+        // Inicializar si ya hay un valor seleccionado (por si acaso el backend precarga algo)
+        cargarMedicos(departamentoSelect.value);
+    });
+</script>
+{% endblock scripts %}

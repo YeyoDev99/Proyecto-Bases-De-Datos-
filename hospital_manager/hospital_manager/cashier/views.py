@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from .models import *
-from .forms import PersonaRegistrationForm, GestionCitasForm, HistoriaClinicaForm
+from .forms import *
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.urls import reverse
@@ -30,6 +30,15 @@ def es_administrador(user):
     """ Verifica si el usuario autenticado tiene el rol de Administrador """
     try:
         return user.empleados.id_rol.nombre_rol == 'Administrador'
+    except Empleados.DoesNotExist:
+        return False
+    except AttributeError:
+        return False
+        
+def es_farmaceutico(user):
+    """ Verifica si el usuario autenticado tiene el rol de Farmacéutico """
+    try:
+        return user.empleados.id_rol.nombre_rol == 'Farmacéutico'
     except Empleados.DoesNotExist:
         return False
     except AttributeError:
@@ -78,7 +87,7 @@ def sign_up(request):
     Idealmente, solo debería ser accesible por administradores o mediante un token.
     """
     if request.method == 'POST':
-        form = PersonaRegistrationForm(request.POST)
+        form = PersonaCreationForm(request.POST)
         if form.is_valid():
             # El método save() del formulario ya crea la Persona y el Empleado asociado
             form.save()
@@ -94,7 +103,7 @@ def sign_up(request):
         messages.warning(request, "Esta función es solo para Administradores del sistema.")
         return redirect('cashier:index')
         
-    form = PersonaRegistrationForm()
+    form = PersonaCreationForm()
     context = {'form': form}
     return render(request, 'cashier/sign_up.html', context)
 
@@ -123,6 +132,36 @@ def logout_user(request):
     return redirect('cashier:index')
 
 
+@login_required(login_url='cashier:index')
+def perfil_empleado(request):
+    """
+    Muestra y permite actualizar la información del empleado logueado.
+    """
+    empleado = get_object_or_404(Empleados, persona=request.user)
+    persona = empleado.persona
+    
+    if request.method == 'POST':
+        # Actualizar campos del modelo Persona
+        persona.first_name = request.POST.get('first_name', persona.first_name)
+        persona.last_name = request.POST.get('last_name', persona.last_name)
+        persona.celular = request.POST.get('celular', persona.celular)
+        persona.direccion = request.POST.get('direccion', persona.direccion)
+        persona.ciudad_residencia = request.POST.get('ciudad_residencia', persona.ciudad_residencia)
+        
+        try:
+            persona.save()
+            messages.success(request, "Su perfil ha sido actualizado exitosamente.")
+        except Exception as e:
+            messages.error(request, f"Error al guardar los cambios: {e}")
+            
+        return redirect('cashier:perfil_empleado')
+
+    context = {
+        'empleado': empleado,
+    }
+    return render(request, 'cashier/perfil_empleado.html', context)
+
+
 # ==========================================================
 # 2. VISTAS DE GESTIÓN HOSPITALARIA (HIS+)
 # ==========================================================
@@ -144,7 +183,8 @@ def gestion_pacientes(request):
         if not pacientes.exists():
              messages.info(request, f"No se encontraron pacientes para la búsqueda: '{query}'.")
     else:
-        pacientes = Pacientes.objects.all() # Lista inicial, puede ser paginada
+        # Por defecto, solo muestra los últimos 20 registrados para no cargar la BD
+        pacientes = Pacientes.objects.all().order_by('-persona__pk')[:20] 
         
     # Aquí se manejaría el formulario de registro de un nuevo Paciente si se necesita
     
@@ -161,7 +201,7 @@ def ver_historia(request, paciente_pk):
     Muestra el historial de citas y diagnósticos de un paciente específico.
     """
     paciente = get_object_or_404(Pacientes, persona__pk=paciente_pk)
-    # Obtenemos todas las citas realizadas del paciente
+    # Obtenemos todas las citas completadas del paciente
     citas_completadas = Citas.objects.filter(
         cod_pac=paciente,
         estado='REALIZADA'
@@ -197,28 +237,102 @@ def programar_citas(request):
     else:
         form = GestionCitasForm()
         
-    context = {'form': form}
+    # Se añade la lista de departamentos para el select en la plantilla
+    departamentos = Departamentos.objects.all()
+    # Se asume que el paciente_pk no siempre viene, así que se usa solo el formulario.
+        
+    context = {'form': form, 'departamentos': departamentos}
     return render(request, 'cashier/programar_citas.html', context)
-
 
 @login_required(login_url='cashier:index')
 def citas_pendientes(request):
     """
-    Lista las citas programadas. Para el médico, lista solo sus citas.
+    Lista las citas programadas, permitiendo filtrado por fecha y médico.
     """
-    citas = Citas.objects.filter(estado='PROGRAMADA').select_related('cod_pac', 'id_emp')
+    fecha_seleccionada = request.GET.get('fecha', timezone.now().date())
+    medico_seleccionado = request.GET.get('medico_id')
     
+    # 1. Filtro base: Citas para la fecha seleccionada que NO estén como 'CANCELADA' o 'REALIZADA'
+    citas = Citas.objects.filter(
+        fecha_hora__date=fecha_seleccionada
+    ).exclude(
+        estado__in=['CANCELADA', 'REALIZADA']
+    ).select_related('cod_pac__persona', 'id_emp__persona', 'id_dept')
+    
+    # 2. Filtro por Rol: Si es médico, solo ve sus citas.
     if es_medico(request.user):
-        # Filtra las citas solo para el médico logueado
         try:
             empleado = Empleados.objects.get(persona=request.user)
             citas = citas.filter(id_emp=empleado)
+            # Si un médico está logueado, se asume que solo le interesa ver sus citas
+            medicos_disponibles = Empleados.objects.filter(id_emp=empleado)
         except Empleados.DoesNotExist:
             citas = Citas.objects.none()
+            medicos_disponibles = Empleados.objects.none()
             messages.error(request, "Perfil de médico no encontrado.")
+    else: # Personal administrativo o administrador (ve todas)
+        medicos_disponibles = Empleados.objects.filter(id_rol__nombre_rol='Médico').select_related('persona')
+
+        # 3. Filtro por médico (si se aplica un filtro)
+        if medico_seleccionado:
+            citas = citas.filter(id_emp__id_emp=medico_seleccionado)
             
-    context = {'citas': citas}
+    context = {
+        'citas': citas,
+        'fecha_actual': timezone.now(),
+        'fecha_seleccionada': fecha_seleccionada,
+        'medico_seleccionado': medico_seleccionado,
+        'medicos_disponibles': medicos_disponibles
+    }
     return render(request, 'cashier/citas_pendientes.html', context)
+
+
+@login_required(login_url='cashier:index')
+def cambiar_estado_cita(request, cita_pk, nuevo_estado):
+    """
+    Permite a los cajeros cambiar el estado de la cita a 'Confirmada' o 'Cancelada'.
+    """
+    cita = get_object_or_404(Citas, pk=cita_pk)
+    
+    # Lógica de seguridad: Solo Cajero/Admin puede hacer Check-In (Confirmada)
+    if nuevo_estado == 'Confirmada' and es_medico(request.user):
+        messages.error(request, "Solo el personal administrativo puede confirmar la llegada del paciente.")
+        return redirect('cashier:citas_pendientes')
+    
+    # Lógica de seguridad: Solo el médico asignado o el administrador puede ponerla En Curso
+    if nuevo_estado == 'En Curso':
+        if not (es_administrador(request.user) or (es_medico(request.user) and cita.id_emp.persona == request.user)):
+             messages.error(request, "Solo el médico asignado o el administrador puede iniciar la atención.")
+             return redirect('cashier:citas_pendientes')
+             
+    # Actualizar estado
+    cita.estado = nuevo_estado
+    cita.save()
+    messages.success(request, f"Estado de la cita {cita.pk} actualizado a '{nuevo_estado}'.")
+    return redirect('cashier:citas_pendientes')
+
+
+@login_required(login_url='cashier:index')
+@user_passes_test(es_medico, login_url='cashier:menu', redirect_field_name=None)
+def iniciar_atencion(request, cita_pk):
+    """
+    Inicia la atención (la pone 'En Curso') y redirige a la página de diagnóstico.
+    Esto es para el botón 'Atender' en citas_pendientes.
+    """
+    cita = get_object_or_404(Citas, pk=cita_pk)
+    
+    # Verificar que el médico logueado sea el asignado
+    if cita.id_emp.persona != request.user:
+        messages.error(request, "No está autorizado para iniciar la atención de esta cita.")
+        return redirect('cashier:citas_pendientes')
+
+    # Si la cita está confirmada o pendiente, la ponemos "En Curso"
+    if cita.estado == 'Confirmada' or cita.estado == 'PROGRAMADA':
+        cita.estado = 'En Curso'
+        cita.save()
+        
+    # Redirigir al formulario de diagnóstico
+    return redirect('cashier:registrar_diagnostico', cita_pk=cita.pk)
 
 
 # --- Módulo Clínico / Diagnóstico ---
@@ -240,13 +354,18 @@ def registrar_diagnostico(request, cita_pk):
     try:
         historia = Historias_Clinicas.objects.get(id_cita=cita)
     except Historias_Clinicas.DoesNotExist:
-        historia = Historias_Clinicas(id_cita=cita)
+        historia = Historias_Clinicas(
+            id_cita=cita,
+            cod_pac=cita.cod_pac,
+            id_emp=cita.id_emp,
+            id_sede=cita.id_dept.id_sede # Tomar la sede del departamento de la cita
+        )
         
     if request.method == 'POST':
         form = HistoriaClinicaForm(request.POST, instance=historia)
         if form.is_valid():
             historia = form.save(commit=False)
-            historia.id_cita = cita
+            historia.fecha_registro = timezone.now() # Marcar el momento del registro
             historia.save()
             
             # Actualizar el estado de la cita
@@ -273,38 +392,66 @@ def prescribir_medicamento(request, historia_pk):
     historia = get_object_or_404(Historias_Clinicas, pk=historia_pk)
     
     # Aquí iría la lógica y el formulario para añadir Prescripciones
+    # Se añade la lista de medicamentos disponibles al contexto
+    medicamentos = Catalogo_Medicamentos.objects.all() 
     
     messages.info(request, "Pendiente implementar el formulario de Prescripciones.")
-    context = {'historia': historia}
+    context = {'historia': historia, 'medicamentos': medicamentos}
     return render(request, 'cashier/prescribir_medicamento.html', context)
 
 
 # --- Módulo Farmacia / Inventario ---
 
 @login_required(login_url='cashier:index')
-@user_passes_test(lambda u: es_administrador(u) or u.empleados.id_rol.nombre_rol == 'Farmacéutico', login_url='cashier:menu', redirect_field_name=None)
+@user_passes_test(lambda u: es_administrador(u) or es_farmaceutico(u), login_url='cashier:menu', redirect_field_name=None)
 def gestion_farmacia(request):
     """
     Muestra el inventario de medicamentos por sede para Farmacéuticos y Admins.
     """
     inventario = Inventario_Farmacia.objects.all().select_related('id_sede', 'cod_med')
     
-    # Lógica de filtrado por sede si el empleado tiene una sede asignada (ej. si no es Admin Central)
+    # Lógica de filtrado por sede si el empleado tiene una sede asignada
+    if not es_administrador(request.user):
+        try:
+            empleado = Empleados.objects.get(persona=request.user)
+            inventario = inventario.filter(id_sede=empleado.id_dept.id_sede)
+        except Empleados.DoesNotExist:
+            messages.error(request, "Error de perfil: No se puede determinar su sede.")
+            inventario = Inventario_Farmacia.objects.none()
     
     context = {'inventario': inventario}
-    messages.info(request, "Esta vista requiere el desarrollo de formularios de alta y edición de inventario.")
     return render(request, 'cashier/gestion_farmacia.html', context)
 
 
 @login_required(login_url='cashier:index')
-@user_passes_test(lambda u: es_administrador(u) or u.empleados.id_rol.nombre_rol == 'Farmacéutico', login_url='cashier:menu', redirect_field_name=None)
+@user_passes_test(lambda u: es_administrador(u) or es_farmaceutico(u), login_url='cashier:menu', redirect_field_name=None)
 def actualizar_stock(request, inv_pk):
     """
     Permite a Farmacéuticos actualizar el stock de un medicamento.
     """
-    # Lógica de actualización de Inventario_Farmacia
-    messages.info(request, f"Vista para actualizar stock del inventario {inv_pk} (Implementación pendiente).")
-    return redirect('cashier:gestion_farmacia')
+    inventario_item = get_object_or_404(Inventario_Farmacia, pk=inv_pk)
+    
+    # Validación de seguridad para Farmacéuticos (solo pueden editar su sede)
+    if es_farmaceutico(request.user):
+        empleado_sede = Empleados.objects.get(persona=request.user).id_dept.id_sede
+        if inventario_item.id_sede != empleado_sede:
+             messages.error(request, "No está autorizado para modificar el inventario de otra sede.")
+             return redirect('cashier:gestion_farmacia')
+
+    if request.method == 'POST':
+        form = InventarioFarmaciaForm(request.POST, instance=inventario_item)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Stock de {inventario_item.cod_med.nom_med} actualizado exitosamente.")
+            return redirect('cashier:gestion_farmacia')
+        else:
+            messages.error(request, "Error al actualizar el stock.")
+    else:
+        form = InventarioFarmaciaForm(instance=inventario_item)
+        
+    context = {'form': form, 'item': inventario_item}
+    return render(request, 'cashier/actualizar_stock.html', context) # Necesita una plantilla separada
+
 
 # --- Módulo Reportes y Analítica (Consultas Requeridas) ---
 
@@ -320,13 +467,17 @@ def reportes_analitica(request):
     
     # 2. Reporte: Reportar el tiempo promedio entre la cita y el registro de diagnóstico (Consulta 3 del PDF)
     # Solo en citas realizadas
-    tiempo_promedio = Historias_Clinicas.objects.filter(
-        id_cita__estado='REALIZADA'
+    # Se usa la hora de la cita y la hora de registro de la historia clínica
+    tiempo_promedio_qs = Historias_Clinicas.objects.filter(
+        id_cita__estado='REALIZADA',
+        fecha_registro__isnull=False # Asegurarse de que tenga registro
     ).annotate(
         diferencia=F('fecha_registro') - F('id_cita__fecha_hora')
     ).aggregate(
         tiempo_promedio_diag=Avg('diferencia')
     )
+    
+    tiempo_promedio = tiempo_promedio_qs['tiempo_promedio_diag']
     
     # 3. Reporte: Médicos con mayor número de consultas atendidas por semana (Consulta 2 del PDF)
     hace_una_semana = timezone.now() - timedelta(days=7)
@@ -344,7 +495,7 @@ def reportes_analitica(request):
     
     context = {
         'citas_por_estado': citas_por_estado,
-        'tiempo_promedio': tiempo_promedio['tiempo_promedio_diag'],
+        'tiempo_promedio': tiempo_promedio,
         'medicos_top': medicos_top,
     }
     return render(request, 'cashier/reportes_analitica.html', context)
@@ -395,14 +546,33 @@ def auditoria_logs(request):
 
 @login_required(login_url='cashier:index')
 @user_passes_test(es_administrador, login_url='cashier:menu', redirect_field_name=None)
-def gestion_equipamiento(request):
+def gestion_equipamiento(request, eq_pk=None):
     """
-    Permite la gestión del equipamiento hospitalario.
+    Permite la gestión del equipamiento hospitalario (alta, edición, listado).
     """
     equipos = Equipamiento.objects.all().select_related('id_dept__id_sede', 'responsable_id__persona')
     
+    if eq_pk: # Si se proporciona un PK, estamos editando
+        equipo = get_object_or_404(Equipamiento, pk=eq_pk)
+        title = "Editar Equipamiento"
+    else: # Si no, estamos creando uno nuevo
+        equipo = Equipamiento()
+        title = "Registrar Nuevo Equipo"
+
+    if request.method == 'POST':
+        form = EquipamientoForm(request.POST, instance=equipo)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Equipamiento '{form.cleaned_data.get('nom_eq')}' guardado exitosamente.")
+            return redirect('cashier:gestion_equipamiento')
+        else:
+            messages.error(request, "Error al guardar el equipamiento. Revise los datos.")
+    else:
+        form = EquipamientoForm(instance=equipo)
+        
     context = {
-        'equipos': equipos
+        'equipos': equipos,
+        'form': form,
+        'title': title
     }
-    messages.info(request, "Pendiente implementar el formulario de gestión de equipamiento.")
     return render(request, 'cashier/gestion_equipamiento.html', context)

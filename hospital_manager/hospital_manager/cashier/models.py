@@ -3,14 +3,13 @@ from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 
 # ====================================================================
-# 1. MODELO BASE (HERENCIA MULTI-TABLA: User actúa como Personas)
-#    User ahora contiene los campos comunes para autenticación.
+# 1. MODELO BASE (HERENCIA MULTI-TABLA: User actúa como Persona)
 # ====================================================================
 
 class Persona(AbstractUser):
     """
     Representa la tabla 'Personas' (Superclase). Contiene atributos comunes
-    y es la base para la autenticación (Empleado).
+    y es la base para la autenticación (Empleado) y el registro de Pacientes.
     """
     TIPO_DOCS = [
         ('CC', 'Cédula de Ciudadanía'),
@@ -22,7 +21,8 @@ class Persona(AbstractUser):
 
     # Campos de Autenticación de AbstractUser (ya incluidos: first_name, last_name, password, is_active, etc.)
     email = models.EmailField(_("email address"), max_length=255, unique=True)
-    username = models.CharField(max_length=150, unique=False, null=True, blank=True)
+    # Hacemos que username sea opcional a nivel de BD, ya que usamos el email para autenticar
+    username = models.CharField(max_length=150, unique=False, null=True, blank=True) 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'num_doc', 'tipo_doc']
 
@@ -35,11 +35,9 @@ class Persona(AbstractUser):
     celular = models.CharField(max_length=20, default='No aplica', null=True, blank=True)
     ciudad_residencia = models.CharField(max_length=50, null=True, blank=True)
     
-    # Restricciones de Django (Herencia)
     class Meta:
         verbose_name = _('Persona')
         verbose_name_plural = _('Personas')
-        # Utilizamos AbstractUser, por lo que este modelo ya es la base de la autenticación.
 
     def __str__(self):
         return f'{self.first_name} {self.last_name} ({self.num_doc})'
@@ -48,8 +46,12 @@ class Empleados(models.Model):
     """
     Tabla Empleados (Subclase). Hereda atributos de Persona (a través de la llave PK/FK).
     """
-    # Relación 1:1 con Persona (Herencia Multi-tabla). PK en Django.
-    persona = models.OneToOneField(Persona, on_delete=models.CASCADE, primary_key=True)
+    # *** CORRECCIÓN CRÍTICA: Uso de 'cashier.Persona' para resolver el ValueError ***
+    persona = models.OneToOneField(
+        'cashier.Persona', 
+        on_delete=models.CASCADE, 
+        primary_key=True
+    )
     
     # Campos específicos de Empleado (del modelo relacional)
     activo = models.BooleanField(default=True)
@@ -69,9 +71,14 @@ class Pacientes(models.Model):
     """ 
     Tabla Pacientes (Subclase). Hereda atributos de Persona (a través de la llave PK/FK).
     """
-    # Relación 1:1 con Persona (Herencia Multi-tabla). PK en Django.
-    persona = models.OneToOneField(Persona, on_delete=models.CASCADE, primary_key=True)
-    cod_pac = models.CharField(max_length=20, unique=True, editable=False, default='PAC_TEMP') # Mantener el cod_pac si es requerido por el negocio
+    # *** CORRECCIÓN CRÍTICA: Uso de 'cashier.Persona' para resolver el ValueError ***
+    persona = models.OneToOneField(
+        'cashier.Persona', 
+        on_delete=models.CASCADE, 
+        primary_key=True
+    )
+    # cod_pac puede ser generado en el save() o ser la PK heredada, pero lo mantenemos como campo
+    cod_pac = models.CharField(max_length=20, unique=True, editable=False, default='PAC_TEMP') 
 
     class Meta:
         verbose_name_plural = "Pacientes"
@@ -79,9 +86,11 @@ class Pacientes(models.Model):
     def __str__(self):
         return f'Paciente: {self.persona.first_name} {self.persona.last_name}'
     
+    # Aunque la lógica de save es opcional, la dejamos para ilustrar el cod_pac
     def save(self, *args, **kwargs):
-        # Lógica para generar un cod_pac si el negocio lo requiere.
-        # Por simplicidad, aquí lo dejamos como un campo de texto simple.
+        if self._state.adding and self.cod_pac == 'PAC_TEMP':
+             # Esto es una simplificación. En producción se usaría una secuencia o lógica de negocio.
+             self.cod_pac = f'PAC-{self.persona_id}' 
         super().save(*args, **kwargs)
 
 
@@ -128,7 +137,7 @@ class Departamentos(models.Model):
         return f'{self.nom_dept} en {self.id_sede.nom_sede}'
 
 # ====================================================================
-# 3. MÓDULO PACIENTES Y CLÍNICO (Ahora referencia a Pacientes)
+# 3. MÓDULO PACIENTES Y CLÍNICO 
 # ====================================================================
 
 class Citas(models.Model):
@@ -141,9 +150,8 @@ class Citas(models.Model):
     ]
     
     id_cita = models.BigAutoField(primary_key=True)
-    # Referencia a la nueva tabla Pacientes
     cod_pac = models.ForeignKey(Pacientes, on_delete=models.PROTECT) 
-    # Referencia a la nueva tabla Empleados
+    # Filtro para que solo se pueda asignar un Empleado con rol 'Médico'
     id_emp = models.ForeignKey(Empleados, on_delete=models.PROTECT, limit_choices_to={'id_rol__nombre_rol': 'Médico'}) 
     id_dept = models.ForeignKey(Departamentos, on_delete=models.PROTECT)
     fecha_hora = models.DateTimeField()
@@ -152,6 +160,7 @@ class Citas(models.Model):
 
     class Meta:
         verbose_name_plural = "Citas"
+        # Restricción para evitar que un médico tenga dos citas a la misma hora
         unique_together = ('id_emp', 'fecha_hora') 
     
     def __str__(self):
@@ -242,8 +251,13 @@ class Equipamiento(models.Model):
     id_dept = models.ForeignKey(Departamentos, on_delete=models.PROTECT)
     estado_equipo = models.CharField(max_length=20, choices=ESTADOS)
     fecha_ultimo_maint = models.DateField(null=True, blank=True)
-    # Referencia a la nueva tabla Empleados
-    responsable_id = models.ForeignKey(Empleados, on_delete=models.SET_NULL, null=True, blank=True, related_name='equipos_a_cargo')
+    responsable_id = models.ForeignKey(
+        Empleados, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='equipos_a_cargo'
+    )
     
     def __str__(self):
         return f'{self.nom_eq} ({self.estado_equipo}) - Depto: {self.id_dept.nom_dept}'
@@ -251,7 +265,6 @@ class Equipamiento(models.Model):
 class Auditoria_Accesos(models.Model):
     """ Mapea la tabla Auditoria_Accesos """
     id_evento = models.BigAutoField(primary_key=True)
-    # Referencia a la nueva tabla Empleados
     id_emp = models.ForeignKey(Empleados, on_delete=models.SET_NULL, null=True, blank=True)
     accion = models.CharField(max_length=50)
     tabla_afectada = models.CharField(max_length=50, null=True, blank=True)
@@ -271,7 +284,6 @@ class Reportes_Generados(models.Model):
     """ Mapea la tabla Reportes_Generados """
     id_reporte = models.AutoField(primary_key=True)
     id_sede = models.ForeignKey(Sedes_Hospitalarias, on_delete=models.PROTECT)
-    # Referencia a la nueva tabla Empleados
     id_emp_generador = models.ForeignKey(Empleados, on_delete=models.PROTECT)
     fecha_generacion = models.DateTimeField(auto_now_add=True)
     tipo_reporte = models.CharField(max_length=50)

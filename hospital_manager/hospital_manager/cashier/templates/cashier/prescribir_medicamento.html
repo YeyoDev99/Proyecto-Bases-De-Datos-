@@ -1,0 +1,154 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
+
+    <!-- TÍTULO PRINCIPAL -->
+    <h1 class="log-in h1">Órdenes y Prescripciones</h1>
+    <h3 class="log-in h3 mb-4">Registro Médico Post-Diagnóstico</h3>
+
+    <!-- MENSAJES -->
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-info alert-dismissible fade show w-75" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- DETALLES DE LA CITA Y DIAGNÓSTICO -->
+    <div class="identification w-75 p-4 mb-5 bg-white shadow-lg">
+        <h4 class="log_title">Detalles de la Consulta</h4>
+        
+        <div class="row text mb-3">
+            <div class="col-md-6">
+                <p><strong>Paciente:</strong> {{ historia.id_cita.cod_pac.persona.first_name }} {{ historia.id_cita.cod_pac.persona.last_name }}</p>
+                <p><strong>Cita:</strong> {{ historia.id_cita.fecha_hora|date:"d M Y H:i" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Médico:</strong> {{ historia.id_cita.id_emp.persona.first_name }} {{ historia.id_cita.id_emp.persona.last_name }}</p>
+                <p><strong>Registro H.C.:</strong> {{ historia.fecha_registro|date:"d M Y H:i" }}</p>
+            </div>
+        </div>
+
+        <h5 class="title mt-3">Diagnóstico Principal (CIE-10)</h5>
+        <p class="text border p-2 rounded">{{ historia.diagnostico|default:"[Diagnóstico pendiente de confirmación]" }}</p>
+    </div>
+
+
+    <!-- FORMULARIO DE PRESCRIPCIONES (Usando formsets si es posible, o un formulario dinámico con JS) -->
+    <div class="identification w-75 p-4 bg-light shadow-lg" id="prescription-form-container">
+        <h4 class="log_title mb-4">Añadir Prescripción Médica</h4>
+        
+        <form method="POST" action="{% url 'cashier:prescribir_medicamento' historia.pk %}" id="prescription-form">
+            {% csrf_token %}
+            
+            <div id="prescriptions-list">
+                <!-- Aquí se añadirán dinámicamente los campos de prescripción -->
+                <div class="prescription-item border p-3 mb-3 rounded" data-id="1">
+                    <h5 class="title text-end">Prescripción #1 <button type="button" class="btn btn-sm btn-danger remove-btn" style="background-color: #84407b; border-color: #84407b;"><i class="bi bi-x"></i></button></h5>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="id_medicamento_1" class="title form-label">Medicamento (Cod. Inv.)</label>
+                            <!-- Este campo sería un select de Inventario_Farmacia -->
+                            <select name="medicamento_1" id="id_medicamento_1" class="form-select form-control text" required>
+                                <option value="" class="text">--- Seleccione Medicamento ---</option>
+                                <!-- Ejemplo de Opciones (deberían ser cargadas por Django) -->
+                                {% comment %} 
+                                    {% for med in medicamentos %}
+                                        <option value="{{ med.cod_med }}">{{ med.nom_med }} (Stock: {{ med.stock }})</option>
+                                    {% endfor %}
+                                {% endcomment %}
+                                <option value="1" class="text">Ibuprofeno 400mg</option>
+                                <option value="2" class="text">Amoxicilina 500mg</option>
+                                <option value="3" class="text">Paracetamol 500mg</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_dosis_1" class="title form-label">Dosis y Frecuencia</label>
+                            <input type="text" name="dosis_1" id="id_dosis_1" class="form-control text" placeholder="Ej: 1 tableta cada 8 horas" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_duracion_1" class="title form-label">Duración (Días)</label>
+                        <input type="number" name="duracion_1" id="id_duracion_1" class="form-control text" min="1" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="d-flex justify-content-between mt-4">
+                <button type="button" id="add-prescription-btn" class="btn btn-info text-white" style="background-color: #4acabb; border-color: #4acabb;">
+                    <i class="bi bi-plus-circle me-1"></i> Añadir Otra Prescripción
+                </button>
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-send-fill me-1"></i> Finalizar y Emitir Órdenes
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="w-100 text-center mt-4">
+        <a href="{% url 'cashier:citas_pendientes' %}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-arrow-left-circle me-2"></i> Volver a Citas Pendientes
+        </a>
+    </div>
+
+</section>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let prescriptionCounter = 1;
+        const list = document.getElementById('prescriptions-list');
+        const addButton = document.getElementById('add-prescription-btn');
+        
+        // Función para crear un nuevo bloque de prescripción
+        function createPrescriptionBlock(id) {
+            return `
+                <div class="prescription-item border p-3 mb-3 rounded" data-id="${id}">
+                    <h5 class="title text-end">Prescripción #${id} <button type="button" class="btn btn-sm btn-danger remove-btn" style="background-color: #84407b; border-color: #84407b;"><i class="bi bi-x"></i></button></h5>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="id_medicamento_${id}" class="title form-label">Medicamento (Cod. Inv.)</label>
+                            <select name="medicamento_${id}" id="id_medicamento_${id}" class="form-select form-control text" required>
+                                <option value="" class="text">--- Seleccione Medicamento ---</option>
+                                <option value="1" class="text">Ibuprofeno 400mg</option>
+                                <option value="2" class="text">Amoxicilina 500mg</option>
+                                <option value="3" class="text">Paracetamol 500mg</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="id_dosis_${id}" class="title form-label">Dosis y Frecuencia</label>
+                            <input type="text" name="dosis_${id}" id="id_dosis_${id}" class="form-control text" placeholder="Ej: 1 tableta cada 8 horas" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_duracion_${id}" class="title form-label">Duración (Días)</label>
+                        <input type="number" name="duracion_${id}" id="id_duracion_${id}" class="form-control text" min="1" required>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Listener para añadir nueva prescripción
+        addButton.addEventListener('click', function() {
+            prescriptionCounter++;
+            list.insertAdjacentHTML('beforeend', createPrescriptionBlock(prescriptionCounter));
+        });
+
+        // Listener para eliminar prescripción (delegación de eventos)
+        list.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-btn')) {
+                const item = e.target.closest('.prescription-item');
+                // Asegurar que no eliminamos el último ítem
+                if (list.childElementCount > 1) {
+                    item.remove();
+                } else {
+                    alert("Debe haber al menos un campo de prescripción.");
+                }
+            }
+        });
+    });
+</script>
+{% endblock content %}

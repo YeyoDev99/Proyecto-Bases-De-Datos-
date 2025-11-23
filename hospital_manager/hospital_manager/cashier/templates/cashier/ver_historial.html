@@ -1,0 +1,98 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
+
+    <!-- TÍTULO PRINCIPAL USANDO CLASES EXISTENTES -->
+    <h1 class="log-in h1">{{ paciente.first_name }} {{ paciente.last_name }}</h1>
+    <h3 class="log-in h3 mb-4">Historial Clínico del Paciente</h3>
+
+    <!-- MENSAJES -->
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-info alert-dismissible fade show w-100" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- DETALLES DEL PACIENTE (Usando un contenedor con estilo de "tarjeta retro") -->
+    <div class="identification w-75 p-3 mb-4 bg-white shadow-lg">
+        <h4 class="log_title">Datos Personales</h4>
+        <div class="row text">
+            <div class="col-md-6">
+                <p><strong>Documento:</strong> {{ paciente.tipo_doc }} - {{ paciente.num_doc }}</p>
+                <p><strong>Fecha Nacimiento:</strong> {{ paciente.fecha_nac|date:"d M Y" }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Género:</strong> {{ paciente.genero }}</p>
+                <p><strong>Teléfono:</strong> {{ paciente.celular|default:"N/A" }}</p>
+            </div>
+            <div class="col-12">
+                <p><strong>Dirección:</strong> {{ paciente.direccion|default:"N/A" }}, {{ paciente.ciudad_residencia|default:"N/A" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- LISTADO DE HISTORIALES CLÍNICOS Y CITAS COMPLETADAS -->
+    <div class="w-100 mb-5">
+        <h4 class="log_title text-center mt-5 mb-3">Registro de Citas y Diagnósticos</h4>
+
+        {% if historias %}
+            {% for historia in historias %}
+                <div class="identification w-100 p-4 mb-4 bg-white shadow">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="title mb-0">Encuentro Médico #{{ forloop.revcounter }}</h5>
+                        <small class="text-secondary text-end">
+                            <span class="text">Cita: {{ historia.id_cita.fecha_hora|date:"d/M/Y H:i" }}</span>
+                        </small>
+                    </div>
+
+                    <div class="row text mb-2">
+                        <div class="col-md-6">
+                            <p><strong>Médico Tratante:</strong> {{ historia.id_cita.id_emp.persona.first_name }} {{ historia.id_cita.id_emp.persona.last_name }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Registro (H.C.):</strong> {{ historia.fecha_registro|date:"d/M/Y H:i" }}</p>
+                        </div>
+                    </div>
+
+                    <div class="row text">
+                        <div class="col-12">
+                            <p><strong>Motivo de Consulta:</strong></p>
+                            <p class="border p-2 rounded">{{ historia.motivo_consulta|linebreaksbr }}</p>
+                        </div>
+                        <div class="col-12">
+                            <p><strong>Diagnóstico:</strong></p>
+                            <p class="border p-2 rounded">{{ historia.diagnostico|linebreaksbr }}</p>
+                        </div>
+                        <div class="col-12">
+                            <p><strong>Observaciones:</strong></p>
+                            <p class="border p-2 rounded">{{ historia.observaciones|default:"(Sin observaciones adicionales)"|linebreaksbr }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Botón de Prescripciones (Enlace a la vista pendiente) -->
+                    <div class="text-end mt-3">
+                        <a href="{% url 'cashier:prescribir_medicamento' historia.pk %}" class="btn btn-sm btn-info text-white">
+                            <i class="bi bi-prescription2 me-1"></i> Ver Prescripciones
+                        </a>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-warning text-center" role="alert">
+                Este paciente no tiene historias clínicas o citas completadas registradas.
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="w-100 text-center mt-3">
+        <a href="{% url 'cashier:gestion_pacientes' %}" class="btn btn-outline-secondary btn-lg">
+            <i class="bi bi-arrow-left-circle me-2"></i> Volver a Gestión de Pacientes
+        </a>
+    </div>
+
+</section>
+{% endblock content %}

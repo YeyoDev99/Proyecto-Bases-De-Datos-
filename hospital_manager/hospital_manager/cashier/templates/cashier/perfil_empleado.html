@@ -1,0 +1,83 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
+
+    <!-- TÍTULO PRINCIPAL -->
+    <h1 class="log-in h1">Mi Perfil de Empleado</h1>
+    <h3 class="log-in h3 mb-4">Gestión de datos personales y laborales</h3>
+
+    <!-- MENSAJES -->
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-{{ m.tags }} alert-dismissible fade show w-75" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- CONTENEDOR DEL PERFIL -->
+    <div class="identification w-75 p-5 mb-5 bg-white shadow-lg rounded-3">
+        
+        <form method="POST" action="{% url 'cashier:perfil_empleado' %}">
+            {% csrf_token %}
+
+            <h4 class="log_title mb-4 border-bottom pb-2">Información Laboral</h4>
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <label class="title form-label">Rol:</label>
+                    <input type="text" class="form-control" value="{{ empleado.id_rol.nombre_rol }}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="title form-label">Departamento:</label>
+                    <input type="text" class="form-control" value="{{ empleado.id_dept.nom_dept }} ({{ empleado.id_dept.id_sede.nom_sede }})" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="title form-label">Especialidad:</label>
+                    <input type="text" class="form-control" value="{{ empleado.id_especialidad.nom_esp if empleado.id_especialidad else 'N/A' }}" readonly>
+                </div>
+                <div class="col-md-6">
+                    <label class="title form-label">Estado:</label>
+                    <input type="text" class="form-control text-white fw-bold bg-{% if empleado.activo %}success{% else %}danger{% endif %}" value="{% if empleado.activo %}Activo{% else %}Inactivo{% endif %}" readonly>
+                </div>
+            </div>
+
+            <h4 class="log_title mb-4 border-bottom pb-2">Información de Contacto y Residencia (Editable)</h4>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <label for="first_name" class="title form-label">Nombres:</label>
+                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ empleado.persona.first_name }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="last_name" class="title form-label">Apellidos:</label>
+                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ empleado.persona.last_name }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="celular" class="title form-label">Teléfono / Celular:</label>
+                    <input type="text" class="form-control" id="celular" name="celular" value="{{ empleado.persona.tel_persona }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="direccion" class="title form-label">Dirección de Residencia:</label>
+                    <input type="text" class="form-control" id="direccion" name="direccion" value="{{ empleado.persona.dir_persona }}">
+                </div>
+                <div class="col-md-6">
+                    <label for="ciudad_residencia" class="title form-label">Ciudad de Residencia:</label>
+                    <input type="text" class="form-control" id="ciudad_residencia" name="ciudad_residencia" value="{{ empleado.persona.ciudad_residencia }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="title form-label">Email (No Editable):</label>
+                    <input type="email" class="form-control" value="{{ empleado.persona.email_persona }}" readonly>
+                </div>
+            </div>
+            
+            <div class="col-12 mt-5 text-center">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-cloud-upload me-2"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+
+</section>
+{% endblock content %}
