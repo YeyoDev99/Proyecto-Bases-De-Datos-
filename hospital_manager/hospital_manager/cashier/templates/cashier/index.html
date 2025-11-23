@@ -1,0 +1,25 @@
+{% extends "main.html" %}
+
+{% block content %}
+    <section class='log-in d-flex flex-column justify-content-center align-items-center container-fluid'>
+        <h1>Bienvenido al Sistema de Gestión Hospitalaria HIS+</h1>
+        <form class='identification d-flex flex-column justify-content-center align-items-center' method='POST' action=''>
+            <h4 class='log_title'>Acceso de Empleados</h4>
+            {% csrf_token %}
+            {% if messages %}
+            {% for m in messages %}
+            <div class="alert alert-danger" role="alert">
+                {{m}}
+                </div>
+                {% endfor %}
+            {% endif %}
+            <input placeholder="Indique su correo electrónico o identificador" class='form-control' name="email" type="email">
+            <input placeholder="Indique su contraseña" class='form-control' name="password" type="password">
+            <button class="btn btn-primary" type="submit">Acceder</button>
+            <a href=" {% url 'cashier:sign_up'  %} ">¿Aún no tiene cuenta? Regístrese aquí.</a>
+        </form>
+
+    </section>
+
+
+{% endblock content %}

@@ -1,0 +1,160 @@
+* {
+    background-color: #cbe5c0;
+}
+
+.identification {
+    min-width: 50%;
+    margin: 4rem 0;
+    border: solid;
+    border-color: #4acabb;
+    padding: 2rem;
+    border-width: 0.1px;
+    font-family: 'Pixelify Sans', sans-serif;
+}
+
+
+.log-in h1, .log-in h3, .menu-container h4{
+    margin-top: 2rem;
+    color: #84407b;
+    font-family: 'Pixelify Sans', sans-serif;
+    font-size: 3rem;
+}
+
+.menu-container div, .alert {
+    font-family: 'Pixelify Sans', sans-serif;
+    font-size: 1.5rem;
+    margin-top: 2rem;
+
+}
+
+.log-in a {
+    margin-top: 1rem;
+    text-decoration: none;
+    color: #4acabb;
+}
+
+
+
+
+.log-in a:active, .exit:hover, .menu a:hover  {
+    color: #84407b;
+}
+
+.log-in a:hover, .menu a:hover  {
+    color: #fcf9c2;
+    border-color: #fcf9c2;
+}
+
+.exit {
+    margin-top: 2rem;
+    margin-left: 1rem;
+    text-decoration: none;
+    color: #4acabb;
+    font-size: 1.7rem;
+    font-family: 'Pixelify Sans', sans-serif;
+    text-align: center;
+
+}
+
+
+.identification input {
+    margin: 2rem 0;
+}
+
+/* menu template */
+
+.menu .even {
+    text-align: end;
+}
+
+.menu a {
+    margin-top: 4rem;
+    font-size: 2rem;
+    color: #4acabb;
+    text-decoration: none;
+    font-family: 'Pixelify Sans', sans-serif;
+    border: solid;
+    border-width: 1px;
+    border-color: #4acabb;
+    max-width: 25rem;
+
+}
+
+
+.title {
+    font-family: 'Pixelify Sans', sans-serif;
+    font-size: 1.5rem;
+    margin-top: 2rem;
+    color: #84407b;
+}
+
+
+.text {
+    font-family: 'Pixelify Sans', sans-serif;
+    font-size: 1.5rem;
+    margin-top: 2rem;
+    color: #4acabb;
+
+}
+
+
+.balance-container {
+    padding-top: 8rem;
+}
+
+
+.deposit-container .form-control {
+    max-width: 14rem;
+    margin: 3rem 0;
+    font-family: 'Pixelify Sans', sans-serif;
+}
+
+.deposit-container button {
+    font-family: 'Pixelify Sans', sans-serif;
+
+}
+
+.identification .password {
+    max-width: 4.3rem;
+}
+
+
+.identification input:focus, .deposit-container .form-control:focus {
+    box-shadow: 0 0 0 0.2rem #4acabb;
+}
+
+.identification button, .deposit-container button {
+    background-color: #4acabb;
+    border: #4acabb;
+}
+
+.identification button:hover, .deposit-container button {
+    background-color: #fcf9c2;
+    border-color: #fcf9c2;
+    color: #cbe5c0;
+}
+
+.identification button:active, .deposit-container button {
+    background-color: #84407b;
+    border-color: #84407b;
+}
+
+.btn-close {
+    color: #4acabb;
+}
+
+.log_title {
+    color: #4acabb;
+    font-size: 2.5rem;
+}
+
+.deposit-container p {
+    font-size: 1.3rem;
+    color: #4acabb;
+    text-decoration: none;
+    font-family: 'Pixelify Sans', sans-serif;
+    border: solid;
+    border-width: 1px;
+    border-color: #4acabb;
+    padding: 0.5rem;
+}

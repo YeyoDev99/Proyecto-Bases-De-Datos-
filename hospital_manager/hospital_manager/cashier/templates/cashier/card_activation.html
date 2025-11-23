@@ -1,0 +1,22 @@
+{% extends "main.html" %}
+
+{% block content %}
+    <section class='log-in d-flex flex-column justify-content-center align-items-center container-fluid'>
+        <h3>just one more step to start!</h3>
+        <form class='identification d-flex flex-column justify-content-center align-items-center' method='POST' action=''>
+            {% csrf_token %}
+            {% if messages %}
+            {% for m in messages %}
+            <div class="alert alert-danger" role="alert">
+                {{m}}
+                </div>
+                {% endfor %}
+            {% endif %}
+            {{form}}
+            <button class="btn btn-primary" type="submit">submit</button>
+        </form>
+
+    </section>
+
+
+{% endblock content %}

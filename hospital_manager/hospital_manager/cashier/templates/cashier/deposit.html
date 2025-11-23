@@ -1,0 +1,28 @@
+{% extends "main.html" %}
+
+{% block content %}
+<nav>
+    <section>
+        {% if request.user.is_authenticated %}
+            <a class='exit' href=" {% url 'cashier:menu'  %} "><i class="bi bi-arrow-left-circle-fill"></i>Cancel transaction</a>
+        {% endif %}
+    </section>
+</nav>
+    <section class='menu-container d-flex flex-column justify-content-center align-items-center container'>
+        <h4>Where do yo want to deposit money?</h4>    
+        {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-danger" role="alert">
+            {{m}}
+            </div>
+            {% endfor %}
+        {% endif %}
+        <div class='menu row d-flex justify-content-between container'>
+            <a  href='{% url 'cashier:deposit_money' %}?q=another_account  ' class='col-12 col-md-6 '><i class="bi bi-people"></i>Another account </a>
+            <a  href=' {% url 'cashier:deposit_money' %}?q=self_account ' class='col-12 col-md-6 even'>Self account<i class="bi bi-person"></i></a>
+
+        </div>
+
+    </section>
+
+{% endblock content %}      

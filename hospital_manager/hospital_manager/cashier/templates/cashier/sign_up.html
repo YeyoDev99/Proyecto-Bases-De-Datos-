@@ -1,0 +1,31 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class='log-in d-flex flex-column justify-content-center align-items-center container-fluid'>
+    <form class='identification d-flex flex-column justify-content-center align-items-center' method='POST' action=''>
+        <h4 class='log_title'>sign up</h4>
+        <br>
+        {% csrf_token %}
+        {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-danger" role="alert">
+            {{m}}
+            </div>
+            {% endfor %}
+        {% endif %}
+        {{form}}
+        <p>Your password can’t be too similar to your other personal information. <br>
+            Your password must contain at least 8 characters. <br>
+            Your password can’t be a commonly used password. <br>
+            Your password can’t be entirely numeric. <br>
+            
+            </p>
+        <button class="btn btn-primary" type="submit">start account</button>
+    </form>
+
+</section>
+
+
+{% endblock content %}
+
+

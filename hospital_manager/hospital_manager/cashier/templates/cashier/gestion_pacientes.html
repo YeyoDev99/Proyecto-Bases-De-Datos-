@@ -1,0 +1,103 @@
+{% extends "main.html" %}
+
+{% block content %}
+<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid'>
+    
+    <div class="header-content w-100 p-3 bg-white shadow-sm rounded-lg mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2 class="text-primary-emphasis mb-0"><i class="bi bi-person-circle me-2"></i> Gestión de Pacientes y H.C.</h2>
+            <a href="{% url 'cashier:menu' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left-circle me-1"></i> Volver al Menú
+            </a>
+        </div>
+        <p class="text-secondary mt-2">Utilice el campo de búsqueda para consultar pacientes por nombre o documento y acceder a su historial clínico.</p>
+    </div>
+
+    <!-- Mensajes de Alerta/Éxito -->
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-info alert-dismissible fade show w-100" role="alert">
+            {{ m }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Formulario de Búsqueda de Pacientes -->
+    <div class="search-form w-100 mb-4 p-4 bg-light rounded-lg shadow-sm">
+        <form method="GET" action="{% url 'cashier:gestion_pacientes' %}" class="row g-3 align-items-center">
+            <div class="col-sm-8 col-md-9">
+                <input 
+                    type="text" 
+                    name="q" 
+                    class="form-control form-control-lg" 
+                    placeholder="Buscar paciente por Nombre o Número de Documento..."
+                    value="{{ query|default:'' }}"
+                >
+            </div>
+            <div class="col-sm-4 col-md-3 d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary w-100 me-2"><i class="bi bi-search"></i> Buscar</button>
+                {% if query %}
+                    <a href="{% url 'cashier:gestion_pacientes' %}" class="btn btn-outline-danger"><i class="bi bi-x-circle"></i> Limpiar</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de Resultados de Pacientes -->
+    <div class="results-table w-100 mb-5">
+        {% if pacientes %}
+            <div class="table-responsive bg-white rounded-lg shadow">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" class="text-center">#</th>
+                            <th scope="col">Nombre Completo</th>
+                            <th scope="col">Documento</th>
+                            <th scope="col">Fecha Nac.</th>
+                            <th scope="col">Teléfono</th>
+                            <th scope="col" class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for paciente in pacientes %}
+                        <tr>
+                            <td class="text-center">{{ forloop.counter }}</td>
+                            <td>{{ paciente.persona.first_name }} {{ paciente.persona.last_name }}</td>
+                            <td>{{ paciente.persona.tipo_doc }} - {{ paciente.persona.num_doc }}</td>
+                            <td>{{ paciente.persona.fecha_nac|date:"d M Y" }}</td>
+                            <td>{{ paciente.persona.celular|default:"N/A" }}</td>
+                            <td class="text-center">
+                                <a href="{% url 'cashier:ver_historia' paciente.persona.pk %}" class="btn btn-sm btn-info text-white" title="Ver Historial Clínico">
+                                    <i class="bi bi-file-medical me-1"></i> Ver H.C.
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% elif query %}
+            <div class="alert alert-warning text-center" role="alert">
+                No se encontraron pacientes que coincidan con la búsqueda.
+            </div>
+        {% else %}
+            <div class="alert alert-secondary text-center" role="alert">
+                Realice una búsqueda para empezar o se listarán todos los pacientes.
+                <div class="table-responsive bg-white rounded-lg shadow mt-3">
+                    <table class="table table-hover align-middle mb-0">
+                        <!-- Esta tabla se llenaría si la vista devuelve todos los pacientes sin query -->
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Si se requiere añadir un nuevo paciente desde aquí (funcionalidad extra) -->
+    <div class="w-100 text-center mt-3">
+        <!-- Ejemplo de enlace para registrar un nuevo paciente (requeriría una nueva vista) -->
+        <a href="#" class="btn btn-success"><i class="bi bi-person-plus-fill me-1"></i> Registrar Nuevo Paciente</a>
+    </div>
+    
+</section>
+{% endblock content %}

@@ -1,0 +1,55 @@
+{% extends "main.html" %}
+
+{% block content %}
+<nav>
+    <section>
+        {% if request.user.is_authenticated %}
+            <a class='exit' href=" {% url 'cashier:logout'  %} "><i class="bi bi-arrow-left-circle-fill"></i> Cerrar Sesión</a>
+        {% endif %}
+    </section>
+</nav>
+    <section class='menu-container d-flex flex-column justify-content-center align-items-center container'>
+        <h4>Panel de Control - {{request.user.empleados.id_rol.nombre_rol}} </h4>
+        <h5 class="text-secondary">Bienvenido(a) de nuevo, {{request.user.first_name}} {{request.user.last_name}}</h5>
+        {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-danger" role="alert">
+            {{m}}
+            </div>
+            {% endfor %}
+        {% elif s_messages %}
+        {% for m in s_messages %}
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{m}}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+            {% endfor %}
+            
+        {% endif %}
+
+        <div class='menu row d-flex justify-content-center container mt-4'>
+            
+            <!-- Flujo Clínico y Pacientes -->
+            <a  href='{% url 'cashier:gestion_pacientes' %} ' class='col-md-5 col-sm-12 m-2 '><i class="bi bi-person-lines-fill"></i>   Gestión de Pacientes / Historias </a>
+            
+            <!-- Gestión de Citas -->
+            <a  href=' {% url 'cashier:programar_citas' %} ' class='col-md-5 col-sm-12 m-2 even'><i class="bi bi-calendar-event"></i> Programación y Citas Médicas </a>
+            
+            <!-- Farmacia e Inventario (Requisito de distribución) -->
+            <a  href='{% url 'cashier:gestion_farmacia' %}' class='col-md-5 col-sm-12 m-2'><i class="bi bi-capsule-pill"></i> Gestión de Farmacia e Inventario </a>
+            
+            <!-- Analítica y Reportes (Requisito de Analítica Médica del PDF) -->
+            <a  href='{% url 'cashier:reportes_analitica' %}' class='col-md-5 col-sm-12 m-2 even'><i class="bi bi-graph-up-arrow"></i> Reportes y Analítica Médica </a>
+
+            <!-- Módulo de Auditoría y Seguridad (Requisito del PDF) -->
+            <a  href='{% url 'cashier:auditoria_logs' %}' class='col-md-5 col-sm-12 m-2 '><i class="bi bi-shield-lock"></i> Consultar Log de Auditoría </a>
+            
+            <!-- Gestión de Recursos/Infraestructura -->
+            <a  href='{% url 'cashier:gestion_equipamiento' %}' class='col-md-5 col-sm-12 m-2 even'><i class="bi bi-tools"></i> Gestión de Equipamiento </a>
+
+
+        </div>
+
+    </section>
+
+{% endblock content %}

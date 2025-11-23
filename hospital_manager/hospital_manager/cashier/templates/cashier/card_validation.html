@@ -1,0 +1,41 @@
+{% extends "main.html" %}
+
+{% block content %}
+<nav>
+    <section>
+        {% if request.user.is_authenticated %}
+            <a class='exit' href=" {% url 'cashier:menu'  %} "><i class="bi bi-arrow-left-circle-fill"></i>Cancel transaction</a>
+        {% endif %}
+    </section>
+</nav>
+
+    <section class='log-in d-flex flex-column justify-content-center align-items-center container-fluid'>
+        <h3>digit your credit card password</h3>
+        <form class='identification d-flex flex-column justify-content-center align-items-center' method='POST' action=' {% url 'cashier:card_validation'  trans tries %} '>
+            {% csrf_token %}
+            {% if messages %}
+            {% for m in messages %}
+            <div class="alert alert-danger" role="alert">
+                {{m}}
+                </div>
+                {% endfor %}
+            {% endif %}
+            <input class='form-control password' name='card-password' type="password" maxlength='4' placeholder='####'>
+            {% if account and money %}
+                <input name='account' class='d-none' type="text" value={{account}}>
+                <input name='money' class='d-none' type="text" value={{money}}>
+            {% endif %}
+            {% if tickets %}
+            <input name='tickets' class='d-none' type="text" value={{tickets}}>
+
+            {% endif %}
+            {% if money_withdraw %}
+            <input name='money' class='d-none' type="text" value={{money_withdraw}}>
+            {% endif %}
+            <button class="btn btn-primary" type="submit">submit</button>
+        </form>
+
+    </section>
+
+
+{% endblock content %}
