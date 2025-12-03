@@ -1,4 +1,3 @@
-
 CREATE TABLE Personas (
     id_persona INT PRIMARY KEY,
     nom_persona VARCHAR(100) NOT NULL,
@@ -42,8 +41,13 @@ CREATE TABLE Catalogo_Medicamentos (
     proveedor_principal VARCHAR(100)
 );
 
+CREATE TABLE Enfermedades (
+    id_enfermedad BIGINT PRIMARY KEY,
+    nombre_enfermedad VARCHAR(50) NOT NULL,
+    descripcion VARCHAR(200)
+);
 
-
+-- Tablas con dependencias 
 CREATE TABLE Departamentos (
     id_sede INT NOT NULL,
     id_dept INT NOT NULL,
@@ -58,21 +62,25 @@ CREATE TABLE Pacientes (
     FOREIGN KEY (id_persona) REFERENCES Personas(id_persona)
 );
 
-
-
 CREATE TABLE Empleados (
     id_emp INT PRIMARY KEY, 
     id_persona INT,
     id_rol INT NOT NULL,
     id_sede INT NOT NULL,
     id_dept INT NOT NULL,
-    id_especialidad INT,
     hash_contra VARCHAR(255) NOT NULL,
     activo BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (id_sede, id_dept) REFERENCES Departamentos(id_sede, id_dept),
     FOREIGN KEY (id_rol) REFERENCES Roles(id_rol),
-    FOREIGN KEY (id_especialidad) REFERENCES Especialidades(id_especialidad),
     FOREIGN KEY (id_persona) REFERENCES Personas(id_persona)
+);
+
+CREATE TABLE Emp_Posee_Esp (
+    id_emp_posee_esp INT PRIMARY KEY,
+    id_especialidad INT NOT NULL,
+    id_emp INT NOT NULL,
+    FOREIGN KEY (id_especialidad) REFERENCES Especialidades(id_especialidad),
+    FOREIGN KEY (id_emp) REFERENCES Empleados(id_emp)
 );
 
 CREATE TABLE Inventario_Farmacia (
@@ -85,8 +93,6 @@ CREATE TABLE Inventario_Farmacia (
     FOREIGN KEY (cod_med) REFERENCES Catalogo_Medicamentos(cod_med)
 );
 
-
-
 CREATE TABLE Citas (
     id_cita BIGINT PRIMARY KEY, 
     id_sede INT NOT NULL,
@@ -94,9 +100,10 @@ CREATE TABLE Citas (
     id_emp INT NOT NULL,
     cod_pac INT NOT NULL,
     fecha_hora TIMESTAMP NOT NULL,
+    fecha_hora_solicitada TIMESTAMP NOT NULL,
     tipo_servicio VARCHAR(50),
     estado VARCHAR(20) DEFAULT 'PROGRAMADA',
-    
+    motivo VARCHAR(200),
     FOREIGN KEY (id_emp) REFERENCES Empleados(id_emp), 
     FOREIGN KEY (id_sede, id_dept) REFERENCES Departamentos(id_sede, id_dept),
     FOREIGN KEY (cod_pac) REFERENCES Pacientes(cod_pac)
@@ -117,27 +124,35 @@ CREATE TABLE Equipamiento (
 
 CREATE TABLE Historias_Clinicas (
     cod_hist BIGINT PRIMARY KEY, 
-    id_cita BIGINT UNIQUE NOT NULL,
+    cod_pac INT NOT NULL,
     fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    motivo_consulta TEXT,
-    diagnostico TEXT NOT NULL,
-    observaciones TEXT,
-    FOREIGN KEY (id_cita) REFERENCES Citas(id_cita)
+    FOREIGN KEY (cod_pac) REFERENCES Pacientes(cod_pac)
 );
 
-
+CREATE TABLE Diagnostico (
+    id_diagnostico INT PRIMARY KEY,
+    id_enfermedad BIGINT NOT NULL,
+    id_cita BIGINT NOT NULL,
+    cod_hist BIGINT NOT NULL,
+    observacion TEXT,
+    FOREIGN KEY (id_enfermedad) REFERENCES Enfermedades(id_enfermedad),
+    FOREIGN KEY (id_cita) REFERENCES Citas(id_cita),
+    FOREIGN KEY (cod_hist) REFERENCES Historias_Clinicas(cod_hist)
+);
 
 CREATE TABLE Prescripciones (
     id_presc BIGINT PRIMARY KEY, 
     cod_med INT NOT NULL,
     cod_hist BIGINT NOT NULL,
+    id_cita BIGINT NOT NULL,
     dosis VARCHAR(50) NOT NULL,
     frecuencia VARCHAR(100) NOT NULL,
     duracion_dias INT NOT NULL,
     cantidad_total INT,
     fecha_emision DATE NOT NULL,
     FOREIGN KEY (cod_hist) REFERENCES Historias_Clinicas(cod_hist),
-    FOREIGN KEY (cod_med) REFERENCES Catalogo_Medicamentos(cod_med)
+    FOREIGN KEY (cod_med) REFERENCES Catalogo_Medicamentos(cod_med),
+    FOREIGN KEY (id_cita) REFERENCES Citas(id_cita)
 );
 
 CREATE TABLE Auditoria_Accesos (
@@ -162,35 +177,38 @@ CREATE TABLE Reportes_Generados (
     FOREIGN KEY (id_emp_generador) REFERENCES Empleados(id_emp) 
 );
 
-
+-- Creación de Roles de Usuario
 CREATE ROLE administrador;
 CREATE ROLE medico;
 CREATE ROLE enfermero;
 CREATE ROLE administrativo;
-
 CREATE ROLE auditor;
 
 GRANT USAGE ON SCHEMA public TO administrador, medico, enfermero, administrativo, auditor;
 
-
+-- Permisos Administrador
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO administrador;
 GRANT TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public TO administrador;
 GRANT CREATE ON SCHEMA public TO administrador;
 
-
-GRANT SELECT ON Sedes_Hospitalarias, Departamentos, Empleados, Pacientes, Catalogo_Medicamentos, Inventario_Farmacia, Equipamiento, Reportes_Generados TO medico;
-GRANT SELECT, INSERT, UPDATE ON Citas, Historias_Clinicas, Prescripciones TO medico;
+-- Permisos Médico
+GRANT SELECT ON Sedes_Hospitalarias, Departamentos, Empleados, Pacientes, Catalogo_Medicamentos, 
+    Inventario_Farmacia, Equipamiento, Reportes_Generados, Especialidades, Emp_Posee_Esp, 
+    Enfermedades TO medico;
+GRANT SELECT, INSERT, UPDATE ON Citas, Historias_Clinicas, Prescripciones, Diagnostico TO medico;
 GRANT INSERT ON Reportes_Generados TO medico;
 
-GRANT SELECT ON Sedes_Hospitalarias, Departamentos, Empleados, Pacientes, Catalogo_Medicamentos, Inventario_Farmacia, Equipamiento TO enfermero;
+-- Permisos Enfermero
+GRANT SELECT ON Sedes_Hospitalarias, Departamentos, Empleados, Pacientes, Catalogo_Medicamentos, 
+    Inventario_Farmacia, Equipamiento, Especialidades, Emp_Posee_Esp TO enfermero;
 GRANT SELECT, UPDATE ON Citas TO enfermero;               
 GRANT SELECT, INSERT ON Prescripciones TO enfermero;     
 
+-- Permisos Administrativo
 GRANT SELECT, INSERT, UPDATE, DELETE ON Pacientes, Citas TO administrativo;
-GRANT SELECT ON Empleados, Departamentos, Sedes_Hospitalarias TO administrativo;
+GRANT SELECT ON Empleados, Departamentos, Sedes_Hospitalarias, Personas TO administrativo;
 GRANT INSERT ON Reportes_Generados TO administrativo;   
 
+-- Permisos Auditor
 GRANT SELECT ON Auditoria_Accesos TO auditor;
-GRANT SELECT ON Historias_Clinicas TO auditor; 
-
-
+GRANT SELECT ON Historias_Clinicas, Diagnostico TO auditor;
