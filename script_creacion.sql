@@ -1,3 +1,40 @@
+
+DROP VIEW IF EXISTS vista_consumo_medicamentos_dept CASCADE;
+DROP VIEW IF EXISTS vista_tiempos_atencion CASCADE;
+DROP VIEW IF EXISTS vista_auditoria_historias CASCADE;
+DROP VIEW IF EXISTS vista_equipamiento_departamentos CASCADE;
+DROP VIEW IF EXISTS vista_inventario_consolidado CASCADE;
+DROP VIEW IF EXISTS vista_enfermedades_por_sede CASCADE;
+DROP VIEW IF EXISTS vista_medicos_consultas CASCADE;
+DROP VIEW IF EXISTS vista_medicamentos_recetados_sede CASCADE;
+DROP VIEW IF EXISTS vista_historias_consolidadas CASCADE;
+
+DROP TABLE IF EXISTS Reportes_Generados CASCADE;
+DROP TABLE IF EXISTS Auditoria_Accesos CASCADE;
+DROP TABLE IF EXISTS Prescripciones CASCADE;
+DROP TABLE IF EXISTS Diagnostico CASCADE;
+DROP TABLE IF EXISTS Historias_Clinicas CASCADE;
+DROP TABLE IF EXISTS Equipamiento CASCADE;
+DROP TABLE IF EXISTS Citas CASCADE;
+DROP TABLE IF EXISTS Inventario_Farmacia CASCADE;
+DROP TABLE IF EXISTS Emp_Posee_Esp CASCADE;
+DROP TABLE IF EXISTS Empleados CASCADE;
+DROP TABLE IF EXISTS Pacientes CASCADE;
+DROP TABLE IF EXISTS Departamentos CASCADE;
+DROP TABLE IF EXISTS Enfermedades CASCADE;
+DROP TABLE IF EXISTS Catalogo_Medicamentos CASCADE;
+DROP TABLE IF EXISTS Sedes_Hospitalarias CASCADE;
+DROP TABLE IF EXISTS Especialidades CASCADE;
+DROP TABLE IF EXISTS Roles CASCADE;
+DROP TABLE IF EXISTS Personas CASCADE;
+
+DROP ROLE IF EXISTS auditor;
+DROP ROLE IF EXISTS administrativo;
+DROP ROLE IF EXISTS enfermero;
+DROP ROLE IF EXISTS medico;
+DROP ROLE IF EXISTS administrador;
+
+
 CREATE TABLE Personas (
     id_persona INT PRIMARY KEY,
     nom_persona VARCHAR(100) NOT NULL,
@@ -212,3 +249,207 @@ GRANT INSERT ON Reportes_Generados TO administrativo;
 -- Permisos Auditor
 GRANT SELECT ON Auditoria_Accesos TO auditor;
 GRANT SELECT ON Historias_Clinicas, Diagnostico TO auditor;
+
+-- EXTENSIÓN PARA ENCRIPTACIÓN DE CONTRASEÑAS
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- VISTAS DISTRIBUIDAS Y ANALÍTICAS
+
+-- Vista 1: Historias Clínicas Consolidadas (Replicada entre todas las sedes)
+CREATE VIEW vista_historias_consolidadas AS
+SELECT 
+    hc.cod_hist,
+    hc.cod_pac,
+    p.nom_persona || ' ' || p.apellido_persona AS nombre_paciente,
+    p.num_doc AS documento_paciente,
+    hc.fecha_registro,
+    c.id_cita,
+    c.fecha_hora AS fecha_cita,
+    e.id_emp,
+    pe.nom_persona || ' ' || pe.apellido_persona AS nombre_empleado,
+    s.nom_sede,
+    s.ciudad,
+    d.nom_dept AS departamento,
+    diag.id_diagnostico,
+    enf.nombre_enfermedad,
+    diag.observacion
+FROM Historias_Clinicas hc
+INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
+INNER JOIN Personas p ON pac.id_persona = p.id_persona
+LEFT JOIN Diagnostico diag ON hc.cod_hist = diag.cod_hist
+LEFT JOIN Enfermedades enf ON diag.id_enfermedad = enf.id_enfermedad
+LEFT JOIN Citas c ON diag.id_cita = c.id_cita
+LEFT JOIN Empleados e ON c.id_emp = e.id_emp
+LEFT JOIN Personas pe ON e.id_persona = pe.id_persona
+LEFT JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
+LEFT JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede;
+
+-- Vista 2: Medicamentos más recetados por sede
+CREATE VIEW vista_medicamentos_recetados_sede AS
+SELECT 
+    s.id_sede,
+    s.nom_sede,
+    s.ciudad,
+    m.cod_med,
+    m.nom_med,
+    COUNT(pr.id_presc) AS total_prescripciones,
+    SUM(pr.cantidad_total) AS cantidad_total_recetada,
+    DATE_TRUNC('month', pr.fecha_emision) AS mes
+FROM Prescripciones pr
+INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
+INNER JOIN Citas c ON pr.id_cita = c.id_cita
+INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
+GROUP BY s.id_sede, s.nom_sede, s.ciudad, m.cod_med, m.nom_med, DATE_TRUNC('month', pr.fecha_emision);
+
+-- Vista 3: Médicos con más consultas atendidas
+CREATE VIEW vista_medicos_consultas AS
+SELECT 
+    e.id_emp,
+    p.nom_persona || ' ' || p.apellido_persona AS nombre_medico,
+    s.nom_sede,
+    d.nom_dept,
+    esp.nombre_esp AS especialidad,
+    COUNT(c.id_cita) AS total_consultas,
+    DATE_TRUNC('week', c.fecha_hora) AS semana
+FROM Citas c
+INNER JOIN Empleados e ON c.id_emp = e.id_emp
+INNER JOIN Personas p ON e.id_persona = p.id_persona
+INNER JOIN Roles r ON e.id_rol = r.id_rol
+INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
+INNER JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
+LEFT JOIN Emp_Posee_Esp epe ON e.id_emp = epe.id_emp
+LEFT JOIN Especialidades esp ON epe.id_especialidad = esp.id_especialidad
+WHERE r.nombre_rol = 'Medico'
+GROUP BY e.id_emp, p.nom_persona, p.apellido_persona, s.nom_sede, d.nom_dept, esp.nombre_esp, DATE_TRUNC('week', c.fecha_hora);
+
+-- Vista 4: Estadísticas de enfermedades por sede
+CREATE VIEW vista_enfermedades_por_sede AS
+SELECT 
+    s.id_sede,
+    s.nom_sede,
+    s.ciudad,
+    enf.id_enfermedad,
+    enf.nombre_enfermedad,
+    COUNT(DISTINCT diag.id_diagnostico) AS total_diagnosticos,
+    COUNT(DISTINCT hc.cod_pac) AS pacientes_afectados,
+    DATE_TRUNC('month', hc.fecha_registro) AS mes
+FROM Diagnostico diag
+INNER JOIN Enfermedades enf ON diag.id_enfermedad = enf.id_enfermedad
+INNER JOIN Historias_Clinicas hc ON diag.cod_hist = hc.cod_hist
+INNER JOIN Citas c ON diag.id_cita = c.id_cita
+INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
+GROUP BY s.id_sede, s.nom_sede, s.ciudad, enf.id_enfermedad, enf.nombre_enfermedad, DATE_TRUNC('month', hc.fecha_registro);
+
+-- Vista 5: Inventario de medicamentos consolidado
+CREATE VIEW vista_inventario_consolidado AS
+SELECT 
+    s.id_sede,
+    s.nom_sede,
+    s.ciudad,
+    m.cod_med,
+    m.nom_med,
+    m.principio_activo,
+    i.stock_actual,
+    i.fecha_actualizacion,
+    CASE 
+        WHEN i.stock_actual < 10 THEN 'CRÍTICO'
+        WHEN i.stock_actual < 50 THEN 'BAJO'
+        WHEN i.stock_actual < 100 THEN 'MEDIO'
+        ELSE 'ÓPTIMO'
+    END AS nivel_stock
+FROM Inventario_Farmacia i
+INNER JOIN Sedes_Hospitalarias s ON i.id_sede = s.id_sede
+INNER JOIN Catalogo_Medicamentos m ON i.cod_med = m.cod_med;
+
+-- Vista 6: Equipamiento compartido entre sedes
+CREATE VIEW vista_equipamiento_departamentos AS
+SELECT 
+    eq.nom_eq,
+    eq.marca_modelo,
+    s.id_sede,
+    s.nom_sede,
+    d.id_dept,
+    d.nom_dept,
+    eq.estado_equipo,
+    eq.fecha_ultimo_maint,
+    pe.nom_persona || ' ' || pe.apellido_persona AS responsable
+FROM Equipamiento eq
+INNER JOIN Departamentos d ON eq.id_dept = d.id_dept AND eq.id_sede = d.id_sede
+INNER JOIN Sedes_Hospitalarias s ON d.id_sede = s.id_sede
+LEFT JOIN Empleados e ON eq.responsable_id = e.id_emp
+LEFT JOIN Personas pe ON e.id_persona = pe.id_persona;
+
+-- Vista 7: Auditoría de accesos a historias clínicas
+CREATE VIEW vista_auditoria_historias AS
+SELECT 
+    aa.id_evento,
+    aa.id_emp,
+    p.nom_persona || ' ' || p.apellido_persona AS empleado,
+    r.nombre_rol AS rol_empleado,
+    s.nom_sede,
+    aa.accion,
+    aa.tabla_afectada,
+    aa.id_registro_afectado,
+    aa.fecha_evento,
+    aa.ip_origen
+FROM Auditoria_Accesos aa
+LEFT JOIN Empleados e ON aa.id_emp = e.id_emp
+LEFT JOIN Personas p ON e.id_persona = p.id_persona
+LEFT JOIN Roles r ON e.id_rol = r.id_rol
+LEFT JOIN Sedes_Hospitalarias s ON e.id_sede = s.id_sede
+WHERE aa.tabla_afectada = 'Historias_Clinicas'
+ORDER BY aa.fecha_evento DESC;
+
+-- Vista 8: Tiempo promedio entre cita y diagnóstico
+CREATE VIEW vista_tiempos_atencion AS
+SELECT 
+    s.id_sede,
+    s.nom_sede,
+    d.nom_dept,
+    AVG(EXTRACT(EPOCH FROM (hc.fecha_registro - c.fecha_hora))/3600) AS horas_promedio_atencion,
+    COUNT(*) AS total_casos,
+    DATE_TRUNC('month', c.fecha_hora) AS mes
+FROM Citas c
+INNER JOIN Historias_Clinicas hc ON c.cod_pac = hc.cod_pac
+INNER JOIN Diagnostico diag ON diag.id_cita = c.id_cita AND diag.cod_hist = hc.cod_hist
+INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
+INNER JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
+GROUP BY s.id_sede, s.nom_sede, d.nom_dept, DATE_TRUNC('month', c.fecha_hora);
+
+-- Vista 9: Consumo de medicamentos por departamento
+CREATE VIEW vista_consumo_medicamentos_dept AS
+SELECT 
+    d.id_dept,
+    d.nom_dept,
+    s.id_sede,
+    s.nom_sede,
+    m.cod_med,
+    m.nom_med,
+    COUNT(pr.id_presc) AS total_prescripciones,
+    SUM(pr.cantidad_total) AS cantidad_consumida,
+    DATE_TRUNC('month', pr.fecha_emision) AS mes
+FROM Prescripciones pr
+INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
+INNER JOIN Citas c ON pr.id_cita = c.id_cita
+INNER JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
+INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
+GROUP BY d.id_dept, d.nom_dept, s.id_sede, s.nom_sede, m.cod_med, m.nom_med, DATE_TRUNC('month', pr.fecha_emision);
+
+-- Vista 10: Utilización de recursos por sede
+CREATE VIEW vista_utilizacion_recursos AS
+SELECT 
+    s.id_sede,
+    s.nom_sede,
+    COUNT(DISTINCT c.id_cita) AS total_citas,
+    COUNT(DISTINCT hc.cod_hist) AS total_historias,
+    COUNT(DISTINCT eq.cod_eq) AS total_equipamiento,
+    COUNT(DISTINCT e.id_emp) AS total_empleados,
+    COUNT(DISTINCT pac.cod_pac) AS total_pacientes_atendidos,
+    DATE_TRUNC('month', c.fecha_hora) AS mes
+FROM Sedes_Hospitalarias s
+LEFT JOIN Citas c ON s.id_sede = c.id_sede
+LEFT JOIN Historias_Clinicas hc ON c.cod_pac = hc.cod_pac
+LEFT JOIN Equipamiento eq ON s.id_sede = eq.id_sede
+LEFT JOIN Empleados e ON s.id_sede = e.id_sede
+LEFT JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
+GROUP BY s.id_sede, s.nom_sede, DATE_TRUNC('month', c.fecha_hora);
