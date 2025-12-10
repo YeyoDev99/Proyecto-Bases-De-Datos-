@@ -33,12 +33,12 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'cashier.apps.CashierConfig',
     
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    # 'django.contrib.admin',
+    # 'django.contrib.auth',
+    # 'django.contrib.contenttypes',
+    # 'django.contrib.sessions',
+    # 'django.contrib.messages',
+    # 'django.contrib.staticfiles',
 ]
 
 MIDDLEWARE = [
@@ -86,9 +86,9 @@ WSGI_APPLICATION = 'automatic_cashier.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'his_db',   
+        'NAME': 'Hospital',   
         'USER': 'postgres',
-        'PASSWORD': '12345',  
+        'PASSWORD': 'postgres',  
         'HOST': '127.0.0.1',
         'PORT': '5432',
     }
