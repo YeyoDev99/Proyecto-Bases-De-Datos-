@@ -228,16 +228,31 @@ def lista_pacientes(request):
     user = get_user_from_session(request)
     busqueda = request.GET.get('q', '')
     
-    query = """
-        SELECT pac.cod_pac, p.nom_persona, p.apellido_persona, p.num_doc, 
-               p.fecha_nac, p.genero, p.tel_persona, p.email_persona
-        FROM Pacientes pac
-        INNER JOIN Personas p ON pac.id_persona = p.id_persona
-    """
-    params = []
-    if busqueda:
-        query += " WHERE p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s"
-        params = [f'%{busqueda}%', f'%{busqueda}%', f'%{busqueda}%']
+    # Administrador solo ve pacientes de su sede (que tienen citas en su sede)
+    if user['rol'] == 'Administrador':
+        query = """
+            SELECT DISTINCT pac.cod_pac, p.nom_persona, p.apellido_persona, p.num_doc, 
+                   p.fecha_nac, p.genero, p.tel_persona, p.email_persona
+            FROM Pacientes pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            INNER JOIN Citas c ON c.cod_pac = pac.cod_pac
+            WHERE c.id_sede = %s
+        """
+        params = [user['id_sede']]
+        if busqueda:
+            query += " AND (p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s)"
+            params.extend([f'%{busqueda}%', f'%{busqueda}%', f'%{busqueda}%'])
+    else:
+        query = """
+            SELECT pac.cod_pac, p.nom_persona, p.apellido_persona, p.num_doc, 
+                   p.fecha_nac, p.genero, p.tel_persona, p.email_persona
+            FROM Pacientes pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+        """
+        params = []
+        if busqueda:
+            query += " WHERE p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s"
+            params = [f'%{busqueda}%', f'%{busqueda}%', f'%{busqueda}%']
     query += " ORDER BY p.apellido_persona, p.nom_persona LIMIT 100"
     
     pacientes = ejecutar_query(query, params)
@@ -562,8 +577,22 @@ def detalle_historia(request, hist_id):
     
     query = """SELECT * FROM vista_historias_consolidadas WHERE cod_hist = %s"""
     historia = ejecutar_query(query, [hist_id])
+    
+    # Obtener prescripciones asociadas a esta historia
+    query_prescripciones = """
+        SELECT pr.id_presc, m.nom_med, m.principio_activo, pr.dosis, pr.frecuencia, 
+               pr.duracion_dias, pr.cantidad_total, pr.fecha_emision
+        FROM Prescripciones pr
+        INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
+        WHERE pr.cod_hist = %s
+        ORDER BY pr.fecha_emision DESC
+    """
+    prescripciones = ejecutar_query(query_prescripciones, [hist_id])
+    
     registrar_auditoria(user['id_emp'], 'SELECT', 'Historias_Clinicas', hist_id, get_client_ip(request))
-    return render(request, 'cashier/ver_historial.html', {'user': user, 'historia': historia, 'detalle': True})
+    return render(request, 'cashier/ver_historial.html', {
+        'user': user, 'historia': historia, 'prescripciones': prescripciones, 'detalle': True
+    })
 
 @login_required_custom
 @role_required('Medico', 'Enfermero', 'Administrador', 'Administrativo')
@@ -584,7 +613,7 @@ def historias_paciente(request, pac_id):
     return render(request, 'cashier/ver_historial.html', {'user': user, 'historias': historias, 'pac_id': pac_id})
 
 @login_required_custom
-@role_required('Medico', 'Administrador')
+@role_required('Medico')
 def registrar_diagnostico(request, cita_id):
     """Registrar diagnóstico"""
     user = get_user_from_session(request)
@@ -635,7 +664,7 @@ def detalle_diagnostico(request, diag_id):
     return render(request, 'cashier/registrar_diagnostico.html', {'user': user, 'diagnostico': diagnostico})
 
 @login_required_custom
-@role_required('Medico', 'Administrador')
+@role_required('Medico')
 def editar_diagnostico(request, diag_id):
     """Editar diagnóstico"""
     user = get_user_from_session(request)
@@ -780,7 +809,20 @@ def gestion_farmacia(request):
 def inventario_farmacia(request):
     """Inventario de farmacia"""
     user = get_user_from_session(request)
-    query = """SELECT * FROM vista_inventario_consolidado WHERE id_sede = %s ORDER BY nom_med"""
+    query = """
+        SELECT i.id_inv, s.nom_sede, s.ciudad, m.cod_med, m.nom_med, m.principio_activo,
+               i.stock_actual, i.fecha_actualizacion,
+               CASE 
+                   WHEN i.stock_actual < 10 THEN 'CRÍTICO'
+                   WHEN i.stock_actual < 50 THEN 'BAJO'
+                   WHEN i.stock_actual < 100 THEN 'MEDIO'
+                   ELSE 'ÓPTIMO'
+               END AS nivel_stock
+        FROM Inventario_Farmacia i
+        INNER JOIN Sedes_Hospitalarias s ON i.id_sede = s.id_sede
+        INNER JOIN Catalogo_Medicamentos m ON i.cod_med = m.cod_med
+        WHERE i.id_sede = %s ORDER BY m.nom_med
+    """
     inventario = ejecutar_query(query, [user['id_sede']])
     return render(request, 'cashier/gestion_farmacia.html', {'user': user, 'inventario': inventario})
 
@@ -829,7 +871,20 @@ def detalle_medicamento(request, med_id):
 def alertas_inventario(request):
     """Alertas de inventario bajo"""
     user = get_user_from_session(request)
-    query = """SELECT * FROM vista_inventario_consolidado WHERE id_sede = %s AND stock_actual < 50"""
+    query = """
+        SELECT i.id_inv, s.nom_sede, s.ciudad, m.cod_med, m.nom_med, m.principio_activo,
+               i.stock_actual, i.fecha_actualizacion,
+               CASE 
+                   WHEN i.stock_actual < 10 THEN 'CRÍTICO'
+                   WHEN i.stock_actual < 50 THEN 'BAJO'
+                   WHEN i.stock_actual < 100 THEN 'MEDIO'
+                   ELSE 'ÓPTIMO'
+               END AS nivel_stock
+        FROM Inventario_Farmacia i
+        INNER JOIN Sedes_Hospitalarias s ON i.id_sede = s.id_sede
+        INNER JOIN Catalogo_Medicamentos m ON i.cod_med = m.cod_med
+        WHERE i.id_sede = %s AND i.stock_actual < 50
+    """
     alertas = ejecutar_query(query, [user['id_sede']])
     return render(request, 'cashier/gestion_farmacia.html', {'user': user, 'alertas': alertas})
 
@@ -978,19 +1033,17 @@ def reporte_medicos_consultas(request):
 
 @login_required_custom
 def reporte_tiempos_atencion(request):
-    """Tiempo promedio entre cita y diagnóstico"""
+    """Tiempo promedio de espera entre solicitud y cita"""
     user = get_user_from_session(request)
     query = """
         SELECT s.nom_sede, d.nom_dept,
-               ROUND(AVG(EXTRACT(EPOCH FROM (hc.fecha_registro - c.fecha_hora))/3600)::numeric, 2) AS horas_promedio,
+               ROUND(AVG(EXTRACT(EPOCH FROM (c.fecha_hora - c.fecha_hora_solicitada))/86400)::numeric, 2) AS dias_promedio,
                COUNT(*) AS total_casos
         FROM Citas c
-        INNER JOIN Diagnostico diag ON diag.id_cita = c.id_cita
-        INNER JOIN Historias_Clinicas hc ON diag.cod_hist = hc.cod_hist
         INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
         INNER JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
         WHERE c.estado = 'COMPLETADA'
-        GROUP BY s.id_sede, s.nom_sede, d.nom_dept ORDER BY horas_promedio
+        GROUP BY s.id_sede, s.nom_sede, d.nom_dept ORDER BY dias_promedio
     """
     datos = ejecutar_query(query)
     return render(request, 'cashier/reportes_analitica.html', {'user': user, 'datos': datos, 'tipo': 'tiempos'})

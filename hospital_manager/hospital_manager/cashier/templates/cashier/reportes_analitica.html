@@ -75,7 +75,7 @@
                                 {% elif tipo == 'tiempos' %}
                                 <th>Sede</th>
                                 <th>Departamento</th>
-                                <th>Horas Promedio</th>
+                                <th>Días Promedio</th>
                                 <th>Total Casos</th>
                                 {% elif tipo == 'enfermedades' %}
                                 <th>Sede</th>
@@ -101,6 +101,43 @@
                                 <th>Especialidad</th>
                                 <th>Sede</th>
                                 <th>Total Consultas</th>
+                                {% elif tipo == 'recursos' %}
+                                <th>Sede</th>
+                                <th>Total Citas</th>
+                                <th>Total Historias</th>
+                                <th>Total Equipamiento</th>
+                                <th>Total Empleados</th>
+                                <th>Total Pacientes</th>
+                                <th>Mes</th>
+                                {% elif tipo == 'inventario' %}
+                                <th>Sede</th>
+                                <th>Ciudad</th>
+                                <th>Medicamento</th>
+                                <th>Principio Activo</th>
+                                <th>Stock</th>
+                                <th>Actualización</th>
+                                <th>Estado</th>
+                                {% elif tipo == 'productividad' %}
+                                <th>Médico</th>
+                                <th>Sede</th>
+                                <th>Departamento</th>
+                                <th>Especialidad</th>
+                                <th>Consultas</th>
+                                <th>Semana</th>
+                                {% elif tipo == 'tendencias' %}
+                                <th>Sede</th>
+                                <th>Ciudad</th>
+                                <th>Enfermedad</th>
+                                <th>Total Diagnósticos</th>
+                                <th>Pacientes Afectados</th>
+                                <th>Mes</th>
+                                {% elif tipo == 'consumo' %}
+                                <th>Departamento</th>
+                                <th>Sede</th>
+                                <th>Medicamento</th>
+                                <th>Prescripciones</th>
+                                <th>Cantidad Consumida</th>
+                                <th>Mes</th>
                                 {% else %}
                                 {% for i in datos.0 %}<th>Col {{ forloop.counter }}</th>{% endfor %}
                                 {% endif %}

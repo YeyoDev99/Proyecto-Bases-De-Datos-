@@ -57,6 +57,37 @@
                     <p class="title">Observación: <span class="text">{{ h.14 }}</span></p>
                 </div>
                 {% endfor %}
+
+                {% if prescripciones %}
+                <h5 class="mt-4"><i class="bi bi-capsule"></i> Prescripciones</h5>
+                <table class="table mt-2" style="font-family: 'Pixelify Sans';">
+                    <thead>
+                        <tr class="title">
+                            <th>Medicamento</th>
+                            <th>Principio Activo</th>
+                            <th>Dosis</th>
+                            <th>Frecuencia</th>
+                            <th>Duración</th>
+                            <th>Cantidad</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in prescripciones %}
+                        <tr class="text">
+                            <td>{{ p.1 }}</td>
+                            <td>{{ p.2 }}</td>
+                            <td>{{ p.3 }}</td>
+                            <td>{{ p.4 }}</td>
+                            <td>{{ p.5 }} días</td>
+                            <td>{{ p.6 }}</td>
+                            <td>{{ p.7|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+
                 <div class="mt-3 menu">
                     <a href="{% url 'hospital:lista_historias' %}" class="p-2"><i class="bi bi-arrow-left"></i>
                         Volver</a>
