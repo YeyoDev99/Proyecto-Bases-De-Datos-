@@ -506,33 +506,74 @@ def historial_citas(request):
 # ============================================================================
 
 @login_required_custom
+@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
 def lista_historias(request):
     """Lista de historias clínicas"""
     user = get_user_from_session(request)
-    query = """
-        SELECT hc.cod_hist, hc.fecha_registro,
-               p.nom_persona || ' ' || p.apellido_persona as paciente, p.num_doc
-        FROM Historias_Clinicas hc
-        INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
-        INNER JOIN Personas p ON pac.id_persona = p.id_persona
-        ORDER BY hc.fecha_registro DESC LIMIT 100
-    """
-    historias = ejecutar_query(query)
+    
+    # Médicos solo ven historias de sus propios pacientes
+    if user['rol'] == 'Medico':
+        query = """
+            SELECT DISTINCT hc.cod_hist, hc.fecha_registro,
+                   p.nom_persona || ' ' || p.apellido_persona as paciente, p.num_doc
+            FROM Historias_Clinicas hc
+            INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            INNER JOIN Citas c ON c.cod_pac = pac.cod_pac
+            WHERE c.id_emp = %s
+            ORDER BY hc.fecha_registro DESC LIMIT 100
+        """
+        historias = ejecutar_query(query, [user['id_emp']])
+    else:
+        query = """
+            SELECT hc.cod_hist, hc.fecha_registro,
+                   p.nom_persona || ' ' || p.apellido_persona as paciente, p.num_doc
+            FROM Historias_Clinicas hc
+            INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            ORDER BY hc.fecha_registro DESC LIMIT 100
+        """
+        historias = ejecutar_query(query)
     return render(request, 'cashier/ver_historial.html', {'user': user, 'historias': historias})
 
 @login_required_custom
+@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
 def detalle_historia(request, hist_id):
     """Ver historia clínica"""
     user = get_user_from_session(request)
+    
+    # Médicos solo pueden ver historias de sus propios pacientes
+    if user['rol'] == 'Medico':
+        # Verificar que el médico ha atendido a este paciente
+        check_query = """
+            SELECT 1 FROM Historias_Clinicas hc
+            INNER JOIN Citas c ON c.cod_pac = hc.cod_pac
+            WHERE hc.cod_hist = %s AND c.id_emp = %s
+        """
+        tiene_acceso = ejecutar_query_one(check_query, [hist_id, user['id_emp']])
+        if not tiene_acceso:
+            messages.error(request, 'No tiene permisos para ver esta historia clínica.')
+            return redirect('hospital:lista_historias')
+    
     query = """SELECT * FROM vista_historias_consolidadas WHERE cod_hist = %s"""
     historia = ejecutar_query(query, [hist_id])
     registrar_auditoria(user['id_emp'], 'SELECT', 'Historias_Clinicas', hist_id, get_client_ip(request))
     return render(request, 'cashier/ver_historial.html', {'user': user, 'historia': historia, 'detalle': True})
 
 @login_required_custom
+@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
 def historias_paciente(request, pac_id):
     """Historias de un paciente"""
     user = get_user_from_session(request)
+    
+    # Médicos solo pueden ver historias de pacientes que han atendido
+    if user['rol'] == 'Medico':
+        check_query = """SELECT 1 FROM Citas WHERE cod_pac = %s AND id_emp = %s"""
+        tiene_acceso = ejecutar_query_one(check_query, [pac_id, user['id_emp']])
+        if not tiene_acceso:
+            messages.error(request, 'No tiene permisos para ver las historias de este paciente.')
+            return redirect('hospital:lista_historias')
+    
     query = """SELECT * FROM vista_historias_consolidadas WHERE cod_pac = %s ORDER BY fecha_registro DESC"""
     historias = ejecutar_query(query, [pac_id])
     return render(request, 'cashier/ver_historial.html', {'user': user, 'historias': historias, 'pac_id': pac_id})
@@ -607,20 +648,38 @@ def editar_diagnostico(request, diag_id):
 # ============================================================================
 
 @login_required_custom
+@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
 def lista_prescripciones(request):
     """Lista de prescripciones"""
     user = get_user_from_session(request)
-    query = """
-        SELECT pr.id_presc, pr.fecha_emision, m.nom_med, pr.dosis, pr.frecuencia,
-               p.nom_persona || ' ' || p.apellido_persona as paciente
-        FROM Prescripciones pr
-        INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
-        INNER JOIN Historias_Clinicas hc ON pr.cod_hist = hc.cod_hist
-        INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
-        INNER JOIN Personas p ON pac.id_persona = p.id_persona
-        ORDER BY pr.fecha_emision DESC LIMIT 100
-    """
-    prescripciones = ejecutar_query(query)
+    
+    # Médicos solo ven prescripciones de sus propios pacientes
+    if user['rol'] == 'Medico':
+        query = """
+            SELECT pr.id_presc, pr.fecha_emision, m.nom_med, pr.dosis, pr.frecuencia,
+                   p.nom_persona || ' ' || p.apellido_persona as paciente
+            FROM Prescripciones pr
+            INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
+            INNER JOIN Historias_Clinicas hc ON pr.cod_hist = hc.cod_hist
+            INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            INNER JOIN Citas c ON pr.id_cita = c.id_cita
+            WHERE c.id_emp = %s
+            ORDER BY pr.fecha_emision DESC LIMIT 100
+        """
+        prescripciones = ejecutar_query(query, [user['id_emp']])
+    else:
+        query = """
+            SELECT pr.id_presc, pr.fecha_emision, m.nom_med, pr.dosis, pr.frecuencia,
+                   p.nom_persona || ' ' || p.apellido_persona as paciente
+            FROM Prescripciones pr
+            INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
+            INNER JOIN Historias_Clinicas hc ON pr.cod_hist = hc.cod_hist
+            INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            ORDER BY pr.fecha_emision DESC LIMIT 100
+        """
+        prescripciones = ejecutar_query(query)
     return render(request, 'cashier/prescribir_medicamento.html', {'user': user, 'prescripciones': prescripciones})
 
 @login_required_custom
@@ -673,16 +732,33 @@ def prescribir_medicamento(request, hist_id):
     return render(request, 'cashier/prescribir_medicamento.html', {'user': user, 'form': form, 'hist_id': hist_id})
 
 @login_required_custom
+@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
 def detalle_prescripcion(request, presc_id):
     """Ver prescripción"""
     user = get_user_from_session(request)
-    query = """
-        SELECT pr.*, m.nom_med, m.principio_activo
-        FROM Prescripciones pr
-        INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
-        WHERE pr.id_presc = %s
-    """
-    prescripcion = ejecutar_query_one(query, [presc_id])
+    
+    # Médicos solo pueden ver prescripciones de sus propios pacientes
+    if user['rol'] == 'Medico':
+        query = """
+            SELECT pr.*, m.nom_med, m.principio_activo
+            FROM Prescripciones pr
+            INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
+            INNER JOIN Citas c ON pr.id_cita = c.id_cita
+            WHERE pr.id_presc = %s AND c.id_emp = %s
+        """
+        prescripcion = ejecutar_query_one(query, [presc_id, user['id_emp']])
+    else:
+        query = """
+            SELECT pr.*, m.nom_med, m.principio_activo
+            FROM Prescripciones pr
+            INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
+            WHERE pr.id_presc = %s
+        """
+        prescripcion = ejecutar_query_one(query, [presc_id])
+    
+    if not prescripcion:
+        messages.error(request, 'No tiene permisos para ver esta prescripción.')
+        return redirect('hospital:lista_prescripciones')
     return render(request, 'cashier/prescribir_medicamento.html', {'user': user, 'prescripcion': prescripcion})
 
 # ============================================================================
@@ -704,6 +780,7 @@ def inventario_farmacia(request):
     return render(request, 'cashier/gestion_farmacia.html', {'user': user, 'inventario': inventario})
 
 @login_required_custom
+@role_required('Enfermero', 'Administrador')
 def actualizar_stock(request, inv_id):
     """Actualizar stock"""
     user = get_user_from_session(request)
@@ -763,6 +840,7 @@ def lista_equipamiento(request):
     return render(request, 'cashier/gestion_equipamiento.html', {'user': user, 'equipos': equipos})
 
 @login_required_custom
+@role_required('Administrador')
 def nuevo_equipamiento(request):
     """Nuevo equipo"""
     user = get_user_from_session(request)
@@ -795,6 +873,7 @@ def detalle_equipamiento(request, eq_id):
     return render(request, 'cashier/gestion_equipamiento.html', {'user': user, 'equipo': equipo})
 
 @login_required_custom
+@role_required('Administrador')
 def editar_equipamiento(request, eq_id):
     """Editar equipo"""
     user = get_user_from_session(request)
@@ -812,6 +891,7 @@ def editar_equipamiento(request, eq_id):
     return redirect('hospital:detalle_equipamiento', eq_id=eq_id)
 
 @login_required_custom
+@role_required('Administrador')
 def registrar_mantenimiento(request, eq_id):
     """Registrar mantenimiento"""
     user = get_user_from_session(request)
