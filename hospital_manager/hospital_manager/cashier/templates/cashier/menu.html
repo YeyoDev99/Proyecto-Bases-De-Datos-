@@ -114,12 +114,14 @@
                         </a>
                     </div>
                     {% endif %}
+                    {% if user.rol == 'Administrativo' or user.rol == 'Administrador' %}
                     <div class="col-md-4">
                         <a href="{% url 'hospital:nuevo_paciente' %}" class="btn w-100 p-3"
                             style="background-color: #4acabb; font-family: 'Pixelify Sans'; font-size: 1.2rem;">
                             <i class="bi bi-person-plus"></i> Nuevo Paciente
                         </a>
                     </div>
+                    {% endif %}
                     <div class="col-md-4">
                         <a href="{% url 'hospital:citas_pendientes' %}" class="btn w-100 p-3"
                             style="background-color: #4acabb; font-family: 'Pixelify Sans'; font-size: 1.2rem;">

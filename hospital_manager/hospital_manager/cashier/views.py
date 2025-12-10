@@ -246,6 +246,7 @@ def lista_pacientes(request):
     })
 
 @login_required_custom
+@role_required('Administrativo', 'Administrador')
 def nuevo_paciente(request):
     """Registrar nuevo paciente"""
     user = get_user_from_session(request)
@@ -311,6 +312,7 @@ def detalle_paciente(request, pac_id):
     })
 
 @login_required_custom
+@role_required('Administrativo', 'Administrador')
 def editar_paciente(request, pac_id):
     """Editar paciente"""
     user = get_user_from_session(request)
@@ -359,7 +361,7 @@ def lista_citas(request):
     """Lista todas las citas"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente,
                pe.nom_persona || ' ' || pe.apellido_persona as medico, s.nom_sede
         FROM Citas c
@@ -461,13 +463,13 @@ def citas_pendientes(request):
     """Citas del día"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente
         FROM Citas c
         INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
         INNER JOIN Personas p ON pac.id_persona = p.id_persona
         WHERE c.id_sede = %s AND DATE(c.fecha_hora) = CURRENT_DATE
-        AND c.estado = 'PROGRAMADA' ORDER BY c.fecha_hora
+        AND c.tipo_servicio = 'PROGRAMADA' ORDER BY c.fecha_hora
     """
     citas = ejecutar_query(query, [user['id_sede']])
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'citas': citas, 'hoy': True})
@@ -477,13 +479,13 @@ def citas_programadas(request):
     """Citas futuras"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente
         FROM Citas c
         INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
         INNER JOIN Personas p ON pac.id_persona = p.id_persona
         WHERE c.id_sede = %s AND c.fecha_hora > NOW()
-        AND c.estado = 'PROGRAMADA' ORDER BY c.fecha_hora
+        AND c.tipo_servicio = 'PROGRAMADA' ORDER BY c.fecha_hora
     """
     citas = ejecutar_query(query, [user['id_sede']])
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'citas': citas, 'futuras': True})
@@ -493,7 +495,7 @@ def historial_citas(request):
     """Citas pasadas"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente
         FROM Citas c
         INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
@@ -808,6 +810,7 @@ def catalogo_medicamentos(request):
     return render(request, 'cashier/gestion_farmacia.html', {'user': user, 'medicamentos': medicamentos})
 
 @login_required_custom
+@role_required('Administrador')
 def nuevo_medicamento(request):
     """Nuevo medicamento"""
     user = get_user_from_session(request)
