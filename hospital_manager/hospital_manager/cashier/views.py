@@ -841,7 +841,17 @@ def alertas_inventario(request):
 def lista_equipamiento(request):
     """Lista de equipamiento"""
     user = get_user_from_session(request)
-    query = """SELECT * FROM vista_equipamiento_departamentos WHERE id_sede = %s"""
+    query = """
+        SELECT eq.cod_eq, eq.nom_eq, eq.marca_modelo, s.id_sede, s.nom_sede, 
+               d.id_dept, d.nom_dept, eq.estado_equipo, eq.fecha_ultimo_maint,
+               pe.nom_persona || ' ' || pe.apellido_persona AS responsable
+        FROM Equipamiento eq
+        INNER JOIN Departamentos d ON eq.id_dept = d.id_dept AND eq.id_sede = d.id_sede
+        INNER JOIN Sedes_Hospitalarias s ON d.id_sede = s.id_sede
+        LEFT JOIN Empleados e ON eq.responsable_id = e.id_emp
+        LEFT JOIN Personas pe ON e.id_persona = pe.id_persona
+        WHERE eq.id_sede = %s
+    """
     equipos = ejecutar_query(query, [user['id_sede']])
     return render(request, 'cashier/gestion_equipamiento.html', {'user': user, 'equipos': equipos})
 
@@ -874,7 +884,17 @@ def nuevo_equipamiento(request):
 def detalle_equipamiento(request, eq_id):
     """Detalle equipo"""
     user = get_user_from_session(request)
-    query = """SELECT * FROM vista_equipamiento_departamentos WHERE cod_eq = %s"""
+    query = """
+        SELECT eq.cod_eq, eq.nom_eq, eq.marca_modelo, s.id_sede, s.nom_sede, 
+               d.id_dept, d.nom_dept, eq.estado_equipo, eq.fecha_ultimo_maint,
+               pe.nom_persona || ' ' || pe.apellido_persona AS responsable
+        FROM Equipamiento eq
+        INNER JOIN Departamentos d ON eq.id_dept = d.id_dept AND eq.id_sede = d.id_sede
+        INNER JOIN Sedes_Hospitalarias s ON d.id_sede = s.id_sede
+        LEFT JOIN Empleados e ON eq.responsable_id = e.id_emp
+        LEFT JOIN Personas pe ON e.id_persona = pe.id_persona
+        WHERE eq.cod_eq = %s
+    """
     equipo = ejecutar_query_one(query, [eq_id])
     return render(request, 'cashier/gestion_equipamiento.html', {'user': user, 'equipo': equipo})
 
