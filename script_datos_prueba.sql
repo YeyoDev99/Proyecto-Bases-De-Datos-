@@ -246,7 +246,7 @@ INSERT INTO Catalogo_Medicamentos (cod_med, nom_med, principio_activo, descripci
 (7, 'Salbutamol Inhalador', 'Salbutamol', 'Broncodilatador', 'Inhalador', 'Farmacéutica MNO'),
 (8, 'Sumatriptán 50mg', 'Sumatriptán', 'Antimigañoso', 'Tableta', 'Laboratorios PQR');
 
--- 14. INVENTARIO DE FARMACIA
+-- 14. INVENTARIO DE FRMACIA
 INSERT INTO Inventario_Farmacia (id_inv, cod_med, id_sede, stock_actual, fecha_actualizacion) VALUES
 (1, 1, 1, 150, '2025-12-01 08:00:00'),
 (2, 2, 1, 200, '2025-12-01 08:00:00'),

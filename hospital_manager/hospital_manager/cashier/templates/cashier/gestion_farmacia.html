@@ -1,74 +1,197 @@
-{% extends "main.html" %}
+{% extends 'main.html' %}
+{% load static %}
 
 {% block content %}
-<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
-
-    <!-- TÍTULO PRINCIPAL -->
-    <h1 class="log-in h1">Gestión de Inventario Farmacéutico</h1>
-    <h3 class="log-in h3 mb-4">Control de stock de medicamentos por sede</h3>
-
-    <!-- MENSAJES -->
-    {% if messages %}
-        {% for m in messages %}
-        <div class="alert alert-{{ m.tags }} alert-dismissible fade show w-75" role="alert">
-            {{ m }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row py-3" style="background-color: #84407b;">
+        <div class="col-md-6">
+            <a href="{% url 'hospital:dashboard' %}" class="text-white text-decoration-none"
+                style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                <i class="bi bi-hospital"></i> HIS+ | Farmacia
+            </a>
         </div>
-        {% endfor %}
-    {% endif %}
-
-    <!-- CONTENEDOR DE LA TABLA -->
-    <div class="identification w-100 p-4 mb-5 bg-white shadow-lg rounded-3">
-        <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-            <h4 class="log_title">Stock Actual</h4>
-            <a href="#" class="btn btn-success btn-sm"><i class="bi bi-plus-circle me-1"></i> Añadir Nuevo Medicamento</a>
-        </div>
-
-        <div class="table-responsive">
-            <table class="table table-striped table-hover align-middle">
-                <thead class="table-dark">
-                    <tr>
-                        <th scope="col">Código</th>
-                        <th scope="col">Medicamento</th>
-                        <th scope="col">Sede</th>
-                        <th scope="col" class="text-center">Stock Actual</th>
-                        <th scope="col" class="text-center">Última Actualización</th>
-                        <th scope="col" class="text-center">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in inventario %}
-                    <tr class="{% if item.stock_actual < 20 %}table-warning{% endif %}">
-                        <td>{{ item.cod_med.cod_med }}</td>
-                        <td>
-                            <p class="fw-bold mb-0">{{ item.cod_med.nom_med }}</p>
-                            <p class="text-muted small mb-0">{{ item.cod_med.descripcion|truncatechars:50 }}</p>
-                        </td>
-                        <td>{{ item.id_sede.nom_sede }} ({{ item.id_sede.ciudad }})</td>
-                        <td class="text-center">
-                            <span class="badge rounded-pill bg-{% if item.stock_actual < 10 %}danger{% elif item.stock_actual < 50 %}warning text-dark{% else %}success{% endif %}">
-                                {{ item.stock_actual }}
-                            </span>
-                        </td>
-                        <td class="text-center">{{ item.fecha_actualizacion|date:"d M Y H:i" }}</td>
-                        <td class="text-center">
-                            <a href="{% url 'cashier:actualizar_stock' item.pk %}" class="btn btn-sm btn-info text-white me-2" title="Actualizar Stock">
-                                <i class="bi bi-pencil-square"></i>
-                            </a>
-                            <a href="#" class="btn btn-sm btn-danger" title="Eliminar/Dar de Baja">
-                                <i class="bi bi-trash"></i>
-                            </a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center py-4">No hay elementos en el inventario que coincidan con su búsqueda o filtros.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'hospital:dashboard' %}" class="exit"><i class="bi bi-arrow-left"></i> Menú</a>
+            <a href="{% url 'hospital:logout' %}" class="exit ms-3"><i class="bi bi-box-arrow-right"></i> Salir</a>
         </div>
     </div>
 
-</section>
+    {% if messages %}
+    <div class="row mt-2">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4 justify-content-center">
+        <div class="col-md-11">
+            <div class="menu-container">
+                <h4><i class="bi bi-capsule"></i>
+                    {% if consolidado %}Inventario Consolidado{% elif alertas %}Alertas de Stock{% elif medicamentos
+                    %}Catálogo de Medicamentos{% elif medicamento %}Detalle Medicamento{% else %}Gestión de Farmacia{%
+                    endif %}
+                </h4>
+
+                <div class="row mt-3 menu">
+                    <div class="col-auto"><a href="{% url 'hospital:inventario_farmacia' %}" class="p-2"><i
+                                class="bi bi-box"></i> Inventario</a></div>
+                    <div class="col-auto"><a href="{% url 'hospital:catalogo_medicamentos' %}" class="p-2"><i
+                                class="bi bi-list"></i> Catálogo</a></div>
+                    <div class="col-auto"><a href="{% url 'hospital:alertas_inventario' %}" class="p-2"><i
+                                class="bi bi-exclamation-triangle"></i> Alertas</a></div>
+                    <div class="col-auto"><a href="{% url 'hospital:vista_inventario_consolidado' %}" class="p-2"><i
+                                class="bi bi-collection"></i> Consolidado</a></div>
+                </div>
+
+                {% if inventario %}
+                <!-- Inventario -->
+                <table class="table mt-4" style="font-family: 'Pixelify Sans';">
+                    <thead>
+                        <tr class="title">
+                            <th>Sede</th>
+                            <th>Medicamento</th>
+                            <th>Principio Activo</th>
+                            <th>Stock</th>
+                            <th>Estado</th>
+                            <th>Actualización</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in inventario %}
+                        <tr class="text">
+                            <td>{{ i.1 }}</td>
+                            <td>{{ i.4 }}</td>
+                            <td>{{ i.5 }}</td>
+                            <td>{{ i.6 }}</td>
+                            <td>
+                                <span
+                                    class="badge {% if i.8 == 'CRÍTICO' %}bg-danger{% elif i.8 == 'BAJO' %}bg-warning text-dark{% elif i.8 == 'MEDIO' %}bg-info{% else %}bg-success{% endif %}">
+                                    {{ i.8 }}
+                                </span>
+                            </td>
+                            <td>{{ i.7|date:"d/m/Y" }}</td>
+                            <td>
+                                <a href="{% url 'hospital:actualizar_stock' i.0 %}" class="btn btn-sm btn-warning"><i
+                                        class="bi bi-pencil"></i></a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text text-center">No hay inventario</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% elif alertas %}
+                <!-- Alertas Stock -->
+                <div class="alert alert-warning mt-3">
+                    <i class="bi bi-exclamation-triangle"></i> Medicamentos con stock bajo (menos de 50 unidades)
+                </div>
+                <table class="table mt-3" style="font-family: 'Pixelify Sans';">
+                    <thead>
+                        <tr class="title">
+                            <th>Sede</th>
+                            <th>Medicamento</th>
+                            <th>Stock</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in alertas %}
+                        <tr class="text">
+                            <td>{{ a.1 }}</td>
+                            <td>{{ a.4 }}</td>
+                            <td style="color: #dc3545; font-weight: bold;">{{ a.6 }}</td>
+                            <td><span class="badge bg-danger">{{ a.8 }}</span></td>
+                            <td><a href="{% url 'hospital:actualizar_stock' a.0 %}" class="btn btn-sm btn-primary"><i
+                                        class="bi bi-plus-circle"></i> Reponer</a></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text text-center text-success">No hay alertas de inventario</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% elif medicamentos %}
+                <!-- Catálogo -->
+                <table class="table mt-4" style="font-family: 'Pixelify Sans';">
+                    <thead>
+                        <tr class="title">
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th>Principio Activo</th>
+                            <th>Unidad</th>
+                            <th>Proveedor</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in medicamentos %}
+                        <tr class="text">
+                            <td>{{ m.0 }}</td>
+                            <td>{{ m.1 }}</td>
+                            <td>{{ m.2 }}</td>
+                            <td>{{ m.4 }}</td>
+                            <td>{{ m.5 }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text text-center">No hay medicamentos en el catálogo</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                {% elif medicamento %}
+                <!-- Detalle Medicamento -->
+                <div class="identification mt-4">
+                    <p class="title">Código: <span class="text">{{ medicamento.0 }}</span></p>
+                    <p class="title">Nombre: <span class="text">{{ medicamento.1 }}</span></p>
+                    <p class="title">Principio Activo: <span class="text">{{ medicamento.2 }}</span></p>
+                    <p class="title">Descripción: <span class="text">{{ medicamento.3 }}</span></p>
+                    <p class="title">Unidad: <span class="text">{{ medicamento.4 }}</span></p>
+                    <p class="title">Proveedor: <span class="text">{{ medicamento.5 }}</span></p>
+                </div>
+
+                {% else %}
+                <!-- Panel General Farmacia -->
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <a href="{% url 'hospital:inventario_farmacia' %}"
+                            class="identification d-block text-center text-decoration-none">
+                            <i class="bi bi-box-seam text" style="font-size: 3rem;"></i>
+                            <div class="title mt-2">Ver Inventario</div>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{% url 'hospital:alertas_inventario' %}"
+                            class="identification d-block text-center text-decoration-none">
+                            <i class="bi bi-exclamation-triangle text" style="font-size: 3rem;"></i>
+                            <div class="title mt-2">Alertas Stock</div>
+                        </a>
+                    </div>
+                    <div class="col-md-4">
+                        <a href="{% url 'hospital:catalogo_medicamentos' %}"
+                            class="identification d-block text-center text-decoration-none">
+                            <i class="bi bi-list-ul text" style="font-size: 3rem;"></i>
+                            <div class="title mt-2">Catálogo</div>
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}

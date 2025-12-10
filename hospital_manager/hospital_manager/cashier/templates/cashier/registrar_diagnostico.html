@@ -1,76 +1,79 @@
-{% extends "main.html" %}
+{% extends 'main.html' %}
+{% load static %}
 
 {% block content %}
-<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
-
-    <!-- TÍTULO PRINCIPAL -->
-    <h1 class="log-in h1">Registro de Historia Clínica</h1>
-    <h3 class="log-in h3 mb-4">Diagnóstico Médico (Cita #{{ cita.pk }})</h3>
-
-    <!-- MENSAJES -->
-    {% if messages %}
-        {% for m in messages %}
-        <div class="alert alert-{{ m.tags }} alert-dismissible fade show w-75" role="alert">
-            {{ m }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row py-3" style="background-color: #84407b;">
+        <div class="col-md-6">
+            <a href="{% url 'hospital:dashboard' %}" class="text-white text-decoration-none"
+                style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                <i class="bi bi-hospital"></i> HIS+ | Diagnóstico
+            </a>
         </div>
-        {% endfor %}
-    {% endif %}
-
-    <!-- DETALLES DEL PACIENTE Y CITA -->
-    <div class="identification w-75 p-4 mb-5 bg-white shadow-lg">
-        <h4 class="log_title mb-3">Información del Paciente</h4>
-        <div class="row text mb-3">
-            <div class="col-md-6">
-                <p><strong>Paciente:</strong> {{ paciente.first_name }} {{ paciente.last_name }}</p>
-                <p><strong>Documento:</strong> {{ paciente.num_doc }} ({{ paciente.tipo_doc }})</p>
-            </div>
-            <div class="col-md-6">
-                <p><strong>Servicio:</strong> {{ cita.tipo_servicio }}</p>
-                <p><strong>Fecha/Hora Cita:</strong> {{ cita.fecha_hora|date:"d M Y H:i" }}</p>
-            </div>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'hospital:lista_citas' %}" class="exit"><i class="bi bi-arrow-left"></i> Citas</a>
+            <a href="{% url 'hospital:logout' %}" class="exit ms-3"><i class="bi bi-box-arrow-right"></i> Salir</a>
         </div>
-        
-        <hr class="my-4">
-        
-        <!-- FORMULARIO DE DIAGNÓSTICO -->
-        <h4 class="log_title mb-4">Registro de Diagnóstico</h4>
-        
-        <form method="POST" action="{% url 'cashier:registrar_diagnostico' cita.pk %}" class="row g-4">
-            {% csrf_token %}
-            
-            <!-- Campo para el motivo de consulta/anamnesis (si existe en el form) -->
-            {% for field in form %}
-                {% if field.name == 'diagnostico' or field.name == 'notas_medicas' or field.name == 'motivo_consulta' %}
-                    <div class="col-12">
-                        <label for="{{ field.id_for_label }}" class="title form-label">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                            <small class="text-danger">{{ field.errors }}</small>
-                        {% endif %}
-                    </div>
-                {% else %}
-                    <!-- Otros campos de la Historia Clínica si los hubiera (ej: peso, talla, presión) -->
-                    <div class="col-md-6">
-                        <label for="{{ field.id_for_label }}" class="title form-label">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.errors %}
-                            <small class="text-danger">{{ field.errors }}</small>
-                        {% endif %}
-                    </div>
-                {% endif %}
-            {% endfor %}
-
-            <div class="col-12 mt-5 text-center">
-                <button type="submit" class="btn btn-primary btn-lg me-3">
-                    <i class="bi bi-save me-1"></i> Guardar y Continuar a Prescripción
-                </button>
-                <a href="{% url 'cashier:citas_pendientes' %}" class="btn btn-outline-secondary btn-lg">
-                    <i class="bi bi-x-circle me-1"></i> Cancelar / Volver a Agenda
-                </a>
-            </div>
-        </form>
     </div>
 
-</section>
+    {% if messages %}
+    <div class="row mt-2">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4 justify-content-center">
+        <div class="col-md-8">
+            <div class="identification">
+                {% if diagnostico %}
+                <!-- Detalle Diagnóstico -->
+                <h4 class="title"><i class="bi bi-clipboard2-pulse"></i> Diagnóstico #{{ diagnostico.0 }}</h4>
+                <div class="mt-4">
+                    <p class="title">Enfermedad: <span class="text">{{ diagnostico.5 }}</span></p>
+                    <p class="title">Cita: <span class="text">#{{ diagnostico.2 }}</span></p>
+                    <p class="title">Historia: <span class="text">#{{ diagnostico.3 }}</span></p>
+                    <p class="title">Observación:</p>
+                    <p class="text">{{ diagnostico.4 }}</p>
+                </div>
+                <a href="{% url 'hospital:lista_historias' %}" class="btn btn-secondary mt-3">Volver</a>
+
+                {% else %}
+                <!-- Registrar Diagnóstico -->
+                <h4 class="title"><i class="bi bi-clipboard2-pulse"></i> Registrar Diagnóstico - Cita #{{ cita_id }}
+                </h4>
+
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="title">Enfermedad</label>
+                        <select name="id_enfermedad" class="form-select" required>
+                            <option value="">Seleccione una enfermedad</option>
+                            {% for choice in form.id_enfermedad.field.widget.choices %}
+                            <option value="{{ choice.0 }}">{{ choice.1 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="title">Observaciones del Diagnóstico</label>
+                        <textarea name="observacion" class="form-control" rows="5" required
+                            placeholder="Describa los síntomas, hallazgos y recomendaciones..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">
+                        <i class="bi bi-check-circle"></i> Registrar Diagnóstico
+                    </button>
+                    <a href="{% url 'hospital:detalle_cita' cita_id %}" class="btn btn-secondary mt-3">Cancelar</a>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}

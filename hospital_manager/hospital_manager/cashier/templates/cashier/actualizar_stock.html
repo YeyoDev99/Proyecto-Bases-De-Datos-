@@ -1,54 +1,67 @@
-{% extends "main.html" %}
+{% extends 'main.html' %}
+{% load static %}
 
 {% block content %}
-<section class='section-main d-flex flex-column justify-content-start align-items-center container-fluid p-4'>
-
-    <!-- TÍTULO PRINCIPAL -->
-    <h1 class="log-in h1">Actualizar Stock de Medicamento</h1>
-    <h3 class="log-in h3 mb-4">Inventario en Sede: {{ item.id_sede.nom_sede }}</h3>
-
-    <!-- MENSAJES -->
-    {% if messages %}
-        {% for m in messages %}
-        <div class="alert alert-{{ m.tags }} alert-dismissible fade show w-75" role="alert">
-            {{ m }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row py-3" style="background-color: #84407b;">
+        <div class="col-md-6">
+            <a href="{% url 'hospital:dashboard' %}" class="text-white text-decoration-none"
+                style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                <i class="bi bi-hospital"></i> HIS+ | Actualizar Stock
+            </a>
         </div>
-        {% endfor %}
-    {% endif %}
-
-    <!-- DETALLES DEL MEDICAMENTO Y FORMULARIO -->
-    <div class="identification w-50 p-5 mb-5 bg-white shadow-lg rounded-3">
-        <h4 class="log_title mb-3 border-bottom pb-2">Medicamento: {{ item.cod_med.nom_med }} ({{ item.cod_med.cod_med }})</h4>
-        <p class="text-muted mb-4">{{ item.cod_med.descripcion }}</p>
-        
-        <form method="POST" action="{% url 'cashier:actualizar_stock' item.pk %}" class="row g-4">
-            {% csrf_token %}
-            
-            <div class="col-12">
-                <label for="{{ form.stock_actual.id_for_label }}" class="title form-label">Stock Actual</label>
-                {{ form.stock_actual }}
-                {% if form.stock_actual.errors %}
-                    <small class="text-danger">{{ form.stock_actual.errors }}</small>
-                {% endif %}
-                <small class="form-text text-muted">Cantidad disponible en la farmacia de esta sede.</small>
-            </div>
-            
-            <!-- Campos ocultos o no editables si el formulario incluye campos como id_sede o cod_med -->
-            {% for field in form.hidden_fields %}
-                {{ field }}
-            {% endfor %}
-
-            <div class="col-12 mt-5 text-center">
-                <button type="submit" class="btn btn-primary btn-lg me-3">
-                    <i class="bi bi-save me-2"></i> Guardar Actualización
-                </button>
-                <a href="{% url 'cashier:gestion_farmacia' %}" class="btn btn-outline-secondary btn-lg">
-                    <i class="bi bi-arrow-left me-2"></i> Volver a Inventario
-                </a>
-            </div>
-        </form>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'hospital:inventario_farmacia' %}" class="exit"><i class="bi bi-arrow-left"></i>
+                Inventario</a>
+            <a href="{% url 'hospital:logout' %}" class="exit ms-3"><i class="bi bi-box-arrow-right"></i> Salir</a>
+        </div>
     </div>
 
-</section>
+    {% if messages %}
+    <div class="row mt-2">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4 justify-content-center">
+        <div class="col-md-6">
+            <div class="identification">
+                <h4 class="title"><i class="bi bi-box-seam"></i> Actualizar Stock de Inventario</h4>
+
+                <form method="post" class="mt-4">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="title">Nuevo Stock</label>
+                        <input type="number" name="stock_actual" class="form-control" min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="title">Motivo del Cambio</label>
+                        <select name="motivo" class="form-select" required>
+                            <option value="COMPRA">Compra/Recepción</option>
+                            <option value="AJUSTE">Ajuste de Inventario</option>
+                            <option value="DEVOLUCION">Devolución</option>
+                            <option value="PERDIDA">Pérdida/Daño</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="title">Observaciones</label>
+                        <textarea name="observaciones" class="form-control" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-3">
+                        <i class="bi bi-check-circle"></i> Actualizar Stock
+                    </button>
+                    <a href="{% url 'hospital:inventario_farmacia' %}" class="btn btn-secondary mt-3">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}

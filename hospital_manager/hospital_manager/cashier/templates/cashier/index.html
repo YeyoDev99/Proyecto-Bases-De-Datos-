@@ -1,25 +1,47 @@
-{% extends "main.html" %}
+{% extends 'main.html' %}
+{% load static %}
 
 {% block content %}
-    <section class='log-in d-flex flex-column justify-content-center align-items-center container-fluid'>
-        <h1>Bienvenido al Sistema de Gestión Hospitalaria HIS+</h1>
-        <form class='identification d-flex flex-column justify-content-center align-items-center' method='POST' action=''>
-            <h4 class='log_title'>Acceso de Empleados</h4>
-            {% csrf_token %}
+<div class="container-fluid">
+    <div class="row justify-content-center log-in">
+        <div class="col-md-6 col-lg-4 identification text-center">
+            <h1 class="log_title"><i class="bi bi-hospital"></i> HIS+</h1>
+            <h3>Sistema Hospitalario Integral</h3>
+
             {% if messages %}
-            {% for m in messages %}
-            <div class="alert alert-danger" role="alert">
-                {{m}}
-                </div>
-                {% endfor %}
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
             {% endif %}
-            <input placeholder="Indique su correo electrónico o identificador" class='form-control' name="email" type="email">
-            <input placeholder="Indique su contraseña" class='form-control' name="password" type="password">
-            <button class="btn btn-primary" type="submit">Acceder</button>
-            <a href=" {% url 'cashier:sign_up'  %} ">¿Aún no tiene cuenta? Regístrese aquí.</a>
-        </form>
 
-    </section>
+            {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+            {% endif %}
 
+            <form method="post" action="{% url 'hospital:login' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="email" class="form-label title">Correo Electrónico</label>
+                    <input type="email" class="form-control" id="email" name="email" placeholder="usuario@hospital.com"
+                        required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label title">Contraseña</label>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="••••••••"
+                        required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-3">
+                    <i class="bi bi-box-arrow-in-right"></i> Iniciar Sesión
+                </button>
+            </form>
 
+            <div class="mt-4 text">
+                <small>Sistema de Gestión Hospitalaria con Base de Datos Distribuida</small>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock content %}
