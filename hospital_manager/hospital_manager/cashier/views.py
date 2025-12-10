@@ -92,32 +92,50 @@ def index(request):
 
 def login_view(request):
     """Procesar login"""
+    error = None
     if request.method == 'POST':
-        form = LoginForm(request.POST)
-        if form.is_valid():
-            email = form.cleaned_data['email']
-            query = """
-                SELECT e.id_emp, p.nom_persona, p.apellido_persona, 
-                       r.nombre_rol, e.id_sede, e.id_dept
-                FROM Empleados e
-                INNER JOIN Personas p ON e.id_persona = p.id_persona
-                INNER JOIN Roles r ON e.id_rol = r.id_rol
-                WHERE p.email_persona = %s AND e.activo = TRUE
-            """
-            user = ejecutar_query_one(query, [email])
-            if user:
-                request.session['id_emp'] = user[0]
-                request.session['email'] = email
-                request.session['nombre'] = f"{user[1]} {user[2]}"
-                request.session['rol'] = user[3]
-                request.session['id_sede'] = user[4]
-                request.session['id_dept'] = user[5]
-                registrar_auditoria(user[0], 'LOGIN', 'Empleados', user[0], get_client_ip(request))
-                messages.success(request, f'Bienvenido, {user[1]}!')
-                return redirect('hospital:dashboard')
-    else:
-        form = LoginForm()
-    return render(request, 'cashier/index.html', {'form': form})
+        email = request.POST.get('email', '')
+        password = request.POST.get('password', '')
+        
+        if not email or not password:
+            error = 'Por favor ingrese email y contraseña.'
+        else:
+            try:
+                # Verificar credenciales con crypt de pgcrypto
+                query = """
+                    SELECT e.id_emp, p.nom_persona, p.apellido_persona, 
+                           r.nombre_rol, e.id_sede, e.id_dept, e.activo
+                    FROM Empleados e
+                    INNER JOIN Personas p ON e.id_persona = p.id_persona
+                    INNER JOIN Roles r ON e.id_rol = r.id_rol
+                    WHERE p.email_persona = %s 
+                    AND e.hash_contra = crypt(%s, e.hash_contra)
+                """
+                user = ejecutar_query_one(query, [email, password])
+                
+                if user:
+                    if not user[6]:  # activo = False
+                        error = 'Su cuenta está desactivada. Contacte al administrador.'
+                    else:
+                        # Login exitoso
+                        request.session['id_emp'] = user[0]
+                        request.session['email'] = email
+                        request.session['nombre'] = f"{user[1]} {user[2]}"
+                        request.session['rol'] = user[3]
+                        request.session['id_sede'] = user[4]
+                        request.session['id_dept'] = user[5]
+                        try:
+                            registrar_auditoria(user[0], 'LOGIN', 'Empleados', user[0], get_client_ip(request))
+                        except:
+                            pass  # No bloquear login si falla auditoría
+                        messages.success(request, f'Bienvenido, {user[1]}!')
+                        return redirect('hospital:dashboard')
+                else:
+                    error = 'Credenciales inválidas. Verifique su email y contraseña.'
+            except Exception as e:
+                error = f'Error de conexión a la base de datos: {str(e)}'
+    
+    return render(request, 'cashier/index.html', {'error': error})
 
 def logout_user(request):
     """Cerrar sesión"""
