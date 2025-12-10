@@ -58,7 +58,7 @@
                     <a href="{% url 'hospital:registrar_diagnostico' cita.0 %}" class="p-2"><i
                             class="bi bi-file-medical"></i> Registrar Diagnóstico</a>
                     {% endif %}
-                    {% if user.rol == 'Personal Administrativo' or user.rol == 'Administrador' %}
+                    {% if user.rol == 'Administrativo' or user.rol == 'Administrador' %}
                     <a href="{% url 'hospital:cancelar_cita' cita.0 %}" class="p-2 ms-2" style="color: #dc3545;"><i
                             class="bi bi-x-circle"></i> Cancelar</a>
                     {% endif %}
@@ -80,7 +80,7 @@
                     <div class="col-auto"><a href="{% url 'hospital:citas_programadas' %}" class="p-2">Futuras</a></div>
                     <div class="col-auto"><a href="{% url 'hospital:historial_citas' %}" class="p-2">Historial</a></div>
                     <div class="col-auto"><a href="{% url 'hospital:lista_citas' %}" class="p-2">Todas</a></div>
-                    {% if user.rol == 'Personal Administrativo' or user.rol == 'Administrador' %}
+                    {% if user.rol == 'Administrativo' or user.rol == 'Administrador' %}
                     <div class="col text-end">
                         <a href="{% url 'hospital:nueva_cita' %}" class="btn btn-success"><i
                                 class="bi bi-calendar-plus"></i> Nueva Cita</a>
@@ -117,11 +117,10 @@
                             <td>
                                 <a href="{% url 'hospital:detalle_cita' c.0 %}" class="btn btn-sm btn-info"><i
                                         class="bi bi-eye"></i></a>
-                                {% if c.3 == 'PROGRAMADA' and user.rol == 'Medico' or c.3 == 'PROGRAMADA' and user.rol
-                                == 'Administrador' %}
+                                {% if c.3 == 'PROGRAMADA' %}{% if user.rol == 'Medico' or user.rol == 'Administrador' %}
                                 <a href="{% url 'hospital:registrar_diagnostico' c.0 %}"
                                     class="btn btn-sm btn-success"><i class="bi bi-file-medical"></i></a>
-                                {% endif %}
+                                {% endif %}{% endif %}
                             </td>
                         </tr>
                         {% empty %}

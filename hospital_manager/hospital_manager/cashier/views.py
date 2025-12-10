@@ -374,7 +374,7 @@ def lista_citas(request):
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'citas': citas})
 
 @login_required_custom
-@role_required('Personal Administrativo', 'Administrador')
+@role_required('Administrativo', 'Administrador')
 def nueva_cita(request):
     """Programar nueva cita"""
     user = get_user_from_session(request)
@@ -422,7 +422,7 @@ def detalle_cita(request, cita_id):
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'cita': cita, 'detalle': True})
 
 @login_required_custom
-@role_required('Personal Administrativo', 'Administrador')
+@role_required('Administrativo', 'Administrador')
 def editar_cita(request, cita_id):
     """Editar cita"""
     user = get_user_from_session(request)
@@ -446,7 +446,7 @@ def editar_cita(request, cita_id):
     return redirect('hospital:lista_citas')
 
 @login_required_custom
-@role_required('Personal Administrativo', 'Administrador')
+@role_required('Administrativo', 'Administrador')
 def cancelar_cita(request, cita_id):
     """Cancelar cita"""
     user = get_user_from_session(request)
@@ -509,7 +509,7 @@ def historial_citas(request):
 # ============================================================================
 
 @login_required_custom
-@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
+@role_required('Medico', 'Enfermero', 'Administrador', 'Administrativo')
 def lista_historias(request):
     """Lista de historias clínicas"""
     user = get_user_from_session(request)
@@ -540,7 +540,7 @@ def lista_historias(request):
     return render(request, 'cashier/ver_historial.html', {'user': user, 'historias': historias})
 
 @login_required_custom
-@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
+@role_required('Medico', 'Enfermero', 'Administrador', 'Administrativo')
 def detalle_historia(request, hist_id):
     """Ver historia clínica"""
     user = get_user_from_session(request)
@@ -564,7 +564,7 @@ def detalle_historia(request, hist_id):
     return render(request, 'cashier/ver_historial.html', {'user': user, 'historia': historia, 'detalle': True})
 
 @login_required_custom
-@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
+@role_required('Medico', 'Enfermero', 'Administrador', 'Administrativo')
 def historias_paciente(request, pac_id):
     """Historias de un paciente"""
     user = get_user_from_session(request)
@@ -651,7 +651,7 @@ def editar_diagnostico(request, diag_id):
 # ============================================================================
 
 @login_required_custom
-@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
+@role_required('Medico', 'Enfermero', 'Administrador', 'Administrativo')
 def lista_prescripciones(request):
     """Lista de prescripciones"""
     user = get_user_from_session(request)
@@ -735,7 +735,7 @@ def prescribir_medicamento(request, hist_id):
     return render(request, 'cashier/prescribir_medicamento.html', {'user': user, 'form': form, 'hist_id': hist_id})
 
 @login_required_custom
-@role_required('Medico', 'Enfermero', 'Administrador', 'Personal Administrativo')
+@role_required('Medico', 'Enfermero', 'Administrador', 'Administrativo')
 def detalle_prescripcion(request, presc_id):
     """Ver prescripción"""
     user = get_user_from_session(request)
