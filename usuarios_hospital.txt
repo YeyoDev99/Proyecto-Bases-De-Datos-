@@ -1,0 +1,11 @@
+ID | Rol | Nombre Completo | Correo | Contraseña (texto plano usada antes del hash)
+1 | Administrador | Carlos Rodríguez | carlos.rodriguez@hospital.com | admin123
+2 | Medico | María González | maria.gonzalez@hospital.com | medico123
+3 | Medico | Juan Martínez | juan.martinez@hospital.com | medico123
+4 | Enfermero | Ana López | ana.lopez@hospital.com | enfermero123
+5 | Medico | Pedro Sánchez | pedro.sanchez@hospital.com | medico123
+6 | Medico | Laura Ramírez | laura.ramirez@hospital.com | medico123
+7 | Enfermero | Diego Torres | diego.torres@hospital.com | enfermero123
+8 | Medico | Carmen Hernández | carmen.hernandez@hospital.com | medico123
+9 | Medico | Roberto García | roberto.garcia@hospital.com | medico123
+10 | Administrativo | Isabel Moreno | isabel.moreno@hospital.com | admin123
