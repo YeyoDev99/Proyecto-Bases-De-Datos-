@@ -79,8 +79,10 @@
                             </td>
                             <td>{{ i.7|date:"d/m/Y" }}</td>
                             <td>
+                                {% if user.rol == 'Enfermero' or user.rol == 'Administrador' %}
                                 <a href="{% url 'hospital:actualizar_stock' i.0 %}" class="btn btn-sm btn-warning"><i
                                         class="bi bi-pencil"></i></a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
@@ -113,8 +115,12 @@
                             <td>{{ a.4 }}</td>
                             <td style="color: #dc3545; font-weight: bold;">{{ a.6 }}</td>
                             <td><span class="badge bg-danger">{{ a.8 }}</span></td>
-                            <td><a href="{% url 'hospital:actualizar_stock' a.0 %}" class="btn btn-sm btn-primary"><i
-                                        class="bi bi-plus-circle"></i> Reponer</a></td>
+                            <td>
+                                {% if user.rol == 'Enfermero' or user.rol == 'Administrador' %}
+                                <a href="{% url 'hospital:actualizar_stock' a.0 %}" class="btn btn-sm btn-primary"><i
+                                        class="bi bi-plus-circle"></i> Reponer</a>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% empty %}
                         <tr>

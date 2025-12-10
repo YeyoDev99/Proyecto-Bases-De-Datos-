@@ -374,6 +374,7 @@ def lista_citas(request):
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'citas': citas})
 
 @login_required_custom
+@role_required('Personal Administrativo', 'Administrador')
 def nueva_cita(request):
     """Programar nueva cita"""
     user = get_user_from_session(request)
@@ -421,6 +422,7 @@ def detalle_cita(request, cita_id):
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'cita': cita, 'detalle': True})
 
 @login_required_custom
+@role_required('Personal Administrativo', 'Administrador')
 def editar_cita(request, cita_id):
     """Editar cita"""
     user = get_user_from_session(request)
@@ -444,6 +446,7 @@ def editar_cita(request, cita_id):
     return redirect('hospital:lista_citas')
 
 @login_required_custom
+@role_required('Personal Administrativo', 'Administrador')
 def cancelar_cita(request, cita_id):
     """Cancelar cita"""
     user = get_user_from_session(request)

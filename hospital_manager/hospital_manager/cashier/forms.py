@@ -362,12 +362,19 @@ class CitaForm(forms.Form):
         fecha = self.cleaned_data.get('fecha_hora')
         
         if fecha:
+            # Hacer la comparación sin timezone para evitar errores
+            # Remover timezone info si existe
+            if fecha.tzinfo is not None:
+                fecha = fecha.replace(tzinfo=None)
+            
+            ahora = datetime.now()
+            
             # No permitir citas en el pasado
-            if fecha < datetime.now():
+            if fecha < ahora:
                 raise ValidationError('No puede programar citas en el pasado.')
             
             # No permitir citas con más de 6 meses de anticipación
-            if (fecha - datetime.now()).days > 180:
+            if (fecha - ahora).days > 180:
                 raise ValidationError('No puede programar citas con más de 6 meses de anticipación.')
         
         return fecha

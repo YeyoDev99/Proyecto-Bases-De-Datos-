@@ -113,12 +113,16 @@
                     </div>
                 </div>
                 <div class="mt-3 menu">
+                    {% if user.rol == 'Personal Administrativo' or user.rol == 'Administrador' %}
                     <a href="{% url 'hospital:editar_paciente' paciente.0 %}" class="p-2"><i class="bi bi-pencil"></i>
                         Editar</a>
+                    {% endif %}
                     <a href="{% url 'hospital:historias_paciente' paciente.0 %}" class="p-2 ms-2"><i
                             class="bi bi-file-medical"></i> Historias</a>
+                    {% if user.rol == 'Personal Administrativo' or user.rol == 'Administrador' %}
                     <a href="{% url 'hospital:nueva_cita' %}" class="p-2 ms-2"><i class="bi bi-calendar-plus"></i> Nueva
                         Cita</a>
+                    {% endif %}
                 </div>
 
                 {% if citas %}
@@ -158,11 +162,13 @@
                             <button type="submit" class="btn btn-primary ms-2"><i class="bi bi-search"></i></button>
                         </form>
                     </div>
+                    {% if user.rol == 'Personal Administrativo' or user.rol == 'Administrador' %}
                     <div class="col-md-4 text-end">
                         <a href="{% url 'hospital:nuevo_paciente' %}" class="btn btn-success">
                             <i class="bi bi-person-plus"></i> Nuevo Paciente
                         </a>
                     </div>
+                    {% endif %}
                 </div>
 
                 <table class="table mt-4" style="font-family: 'Pixelify Sans';">
@@ -187,8 +193,10 @@
                             <td>
                                 <a href="{% url 'hospital:detalle_paciente' p.0 %}" class="btn btn-sm btn-info"><i
                                         class="bi bi-eye"></i></a>
+                                {% if user.rol == 'Personal Administrativo' or user.rol == 'Administrador' %}
                                 <a href="{% url 'hospital:editar_paciente' p.0 %}" class="btn btn-sm btn-warning"><i
                                         class="bi bi-pencil"></i></a>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}

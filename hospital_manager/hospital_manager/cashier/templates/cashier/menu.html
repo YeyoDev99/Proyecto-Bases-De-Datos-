@@ -106,12 +106,14 @@
                 <!-- Quick Actions -->
                 <h4 class="mt-4"><i class="bi bi-lightning"></i> Acciones Rápidas</h4>
                 <div class="row mt-3">
+                    {% if user.rol == 'Personal Administrativo' or user.rol == 'Administrador' %}
                     <div class="col-md-4">
                         <a href="{% url 'hospital:nueva_cita' %}" class="btn w-100 p-3"
                             style="background-color: #4acabb; font-family: 'Pixelify Sans'; font-size: 1.2rem;">
                             <i class="bi bi-calendar-plus"></i> Nueva Cita
                         </a>
                     </div>
+                    {% endif %}
                     <div class="col-md-4">
                         <a href="{% url 'hospital:nuevo_paciente' %}" class="btn w-100 p-3"
                             style="background-color: #4acabb; font-family: 'Pixelify Sans'; font-size: 1.2rem;">
