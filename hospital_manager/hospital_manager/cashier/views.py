@@ -376,7 +376,7 @@ def lista_citas(request):
     """Lista todas las citas"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente,
                pe.nom_persona || ' ' || pe.apellido_persona as medico, s.nom_sede
         FROM Citas c
@@ -422,9 +422,9 @@ def nueva_cita(request):
 def detalle_cita(request, cita_id):
     """Ver detalle de cita"""
     user = get_user_from_session(request)
-    query = """
+    quote = """
         SELECT c.id_cita, c.id_sede, c.id_dept, c.id_emp, c.cod_pac,
-               c.fecha_hora, c.fecha_hora_solicitada, c.estado, c.tipo_servicio, c.motivo,
+               c.fecha_hora, c.fecha_hora_solicitada, c.tipo_servicio, c.estado, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente,
                pe.nom_persona || ' ' || pe.apellido_persona as medico,
                s.nom_sede, d.nom_dept
@@ -437,8 +437,19 @@ def detalle_cita(request, cita_id):
         INNER JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
         WHERE c.id_cita = %s
     """
-    cita = ejecutar_query_one(query, [cita_id])
-    return render(request, 'cashier/citas_pendientes.html', {'user': user, 'cita': cita, 'detalle': True})
+    cita = ejecutar_query_one(quote, [cita_id])
+
+    # Buscar si tiene historia clínica asociada a través de un diagnóstico
+    cod_hist = None
+    if cita and cita[8] == 'COMPLETADA': # cita[8] is estado now
+        query_hist = """
+            SELECT cod_hist FROM Diagnostico WHERE id_cita = %s
+        """
+        result_hist = ejecutar_query_one(query_hist, [cita_id])
+        if result_hist:
+            cod_hist = result_hist[0]
+
+    return render(request, 'cashier/citas_pendientes.html', {'user': user, 'cita': cita, 'detalle': True, 'cod_hist': cod_hist})
 
 @login_required_custom
 @role_required('Administrativo', 'Administrador')
@@ -480,7 +491,7 @@ def citas_pendientes(request):
     """Citas del día"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente
         FROM Citas c
         INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
@@ -496,7 +507,7 @@ def citas_programadas(request):
     """Citas futuras"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente
         FROM Citas c
         INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
@@ -512,7 +523,7 @@ def historial_citas(request):
     """Citas pasadas"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.id_cita, c.fecha_hora, c.estado, c.tipo_servicio, c.motivo,
+        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
                p.nom_persona || ' ' || p.apellido_persona as paciente
         FROM Citas c
         INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
@@ -699,8 +710,7 @@ def lista_prescripciones(request):
             INNER JOIN Historias_Clinicas hc ON pr.cod_hist = hc.cod_hist
             INNER JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac
             INNER JOIN Personas p ON pac.id_persona = p.id_persona
-            INNER JOIN Citas c ON pr.id_cita = c.id_cita
-            WHERE c.id_emp = %s
+            WHERE pac.cod_pac IN (SELECT DISTINCT cod_pac FROM Citas WHERE id_emp = %s)
             ORDER BY pr.fecha_emision DESC LIMIT 100
         """
         prescripciones = ejecutar_query(query, [user['id_emp']])
@@ -761,11 +771,26 @@ def prescribir_medicamento(request, hist_id):
                 "UPDATE Inventario_Farmacia SET stock_actual = stock_actual - %s WHERE cod_med = %s AND id_sede = %s",
                 [data['cantidad_total'], data['cod_med'], user['id_sede']]
             )
+            registrar_auditoria(user['id_emp'], 'INSERT', 'Prescripciones', id_presc, get_client_ip(request))
             messages.success(request, 'Medicamento prescrito.')
-            return redirect('hospital:detalle_historia', hist_id=hist_id)
+            return redirect('hospital:lista_prescripciones')
     else:
         form = PrescripcionForm(user['id_sede'])
-    return render(request, 'cashier/prescribir_medicamento.html', {'user': user, 'form': form, 'hist_id': hist_id})
+    
+    # Obtener datos del paciente para el título
+    query_pac = """
+        SELECT p.nom_persona || ' ' || p.apellido_persona 
+        FROM Historias_Clinicas hc 
+        JOIN Pacientes pac ON hc.cod_pac = pac.cod_pac 
+        JOIN Personas p ON pac.id_persona = p.id_persona 
+        WHERE hc.cod_hist = %s
+    """
+    paciente = ejecutar_query_one(query_pac, [hist_id])
+    nombre_paciente = paciente[0] if paciente else "Desconocido"
+
+    return render(request, 'cashier/prescribir_medicamento.html', {
+        'user': user, 'form': form, 'hist_id': hist_id, 'paciente': nombre_paciente
+    })
 
 @login_required_custom
 @role_required('Medico', 'Enfermero', 'Administrador', 'Administrativo')
