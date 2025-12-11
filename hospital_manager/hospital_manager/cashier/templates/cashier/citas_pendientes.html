@@ -46,15 +46,13 @@
                     <div class="col-md-6">
                         <p class="title">Fecha y Hora: <span class="text">{{ cita.5 }}</span></p>
                         <p class="title">Tipo Servicio: <span class="text">{{ cita.7 }}</span></p>
-                        <p class="title">Estado: <span
-                                class="text {% if cita.8 == 'COMPLETADA' %}text-success{% elif cita.8 == 'CANCELADA' %}text-danger{% endif %}">{{
-                                cita.8 }}</span></p>
+                        <p class="title">Estado: <span class="text">{{ cita.8 }}</span></p>
                         <p class="title">Motivo: <span class="text">{{ cita.9 }}</span></p>
                     </div>
                 </div>
                 <div class="mt-3 menu">
                     {% if cita.8 == 'PROGRAMADA' %}
-                    {% if user.rol == 'Medico' or user.rol == 'Administrador' %}
+                    {% if user.rol == 'Medico' %}
                     <a href="{% url 'hospital:registrar_diagnostico' cita.0 %}" class="p-2"><i
                             class="bi bi-file-medical"></i> Registrar Diagnóstico</a>
                     {% endif %}
@@ -117,7 +115,7 @@
                             <td>
                                 <a href="{% url 'hospital:detalle_cita' c.0 %}" class="btn btn-sm btn-info"><i
                                         class="bi bi-eye"></i></a>
-                                {% if c.3 == 'PROGRAMADA' %}{% if user.rol == 'Medico' or user.rol == 'Administrador' %}
+                                {% if c.3 == 'PROGRAMADA' %}{% if user.rol == 'Medico' %}
                                 <a href="{% url 'hospital:registrar_diagnostico' c.0 %}"
                                     class="btn btn-sm btn-success"><i class="bi bi-file-medical"></i></a>
                                 {% endif %}{% endif %}

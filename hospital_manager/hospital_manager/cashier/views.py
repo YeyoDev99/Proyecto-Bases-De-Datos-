@@ -235,8 +235,8 @@ def lista_pacientes(request):
                    p.fecha_nac, p.genero, p.tel_persona, p.email_persona
             FROM Pacientes pac
             INNER JOIN Personas p ON pac.id_persona = p.id_persona
-            INNER JOIN Citas c ON c.cod_pac = pac.cod_pac
-            WHERE c.id_sede = %s
+            LEFT JOIN Citas c ON c.cod_pac = pac.cod_pac
+            WHERE (c.id_sede = %s OR c.id_cita IS NULL)
         """
         params = [user['id_sede']]
         if busqueda:
@@ -423,7 +423,9 @@ def detalle_cita(request, cita_id):
     """Ver detalle de cita"""
     user = get_user_from_session(request)
     query = """
-        SELECT c.*, p.nom_persona || ' ' || p.apellido_persona as paciente,
+        SELECT c.id_cita, c.id_sede, c.id_dept, c.id_emp, c.cod_pac,
+               c.fecha_hora, c.fecha_hora_solicitada, c.estado, c.tipo_servicio, c.motivo,
+               p.nom_persona || ' ' || p.apellido_persona as paciente,
                pe.nom_persona || ' ' || pe.apellido_persona as medico,
                s.nom_sede, d.nom_dept
         FROM Citas c
