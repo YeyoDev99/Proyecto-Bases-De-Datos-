@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIS+ Sistema Hospitalario - Perfil</title>
+    <meta name="description" content="Sistema Hospitalario Integral">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row py-3 app-header">
+            <div class="col-md-6">
+                <a href="menu.html" class="text-white text-decoration-none"
+                    style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                    <i class="bi bi-hospital"></i> HIS+ | Mi Perfil
+                </a>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="menu.html" class="exit"><i class="bi bi-arrow-left"></i> Menú</a>
+                <a href="index.html" class="exit ms-3"><i class="bi bi-box-arrow-right"></i> Salir</a>
+            </div>
+        </div>
+
+        <div id="messages-container" class="row mt-2"></div>
+
+        <div class="row mt-4 justify-content-center">
+            <div class="col-md-8">
+                <div class="menu-container">
+
+                    <!-- My Profile View -->
+                    <div id="profile-view">
+                        <h4><i class="bi bi-person-circle"></i> Mi Perfil</h4>
+                        <div class="identification mt-4">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="title">Nombre: <span class="text" id="profile-name"></span></p>
+                                    <p class="title">Documento: <span class="text" id="profile-doc"></span></p>
+                                    <p class="title">Fecha Nacimiento: <span class="text" id="profile-dob"></span></p>
+                                    <p class="title">Género: <span class="text" id="profile-gender"></span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="title">Dirección: <span class="text" id="profile-address"></span></p>
+                                    <p class="title">Teléfono: <span class="text" id="profile-phone"></span></p>
+                                    <p class="title">Email: <span class="text" id="profile-email"></span></p>
+                                    <p class="title">Ciudad: <span class="text" id="profile-city"></span></p>
+                                </div>
+                            </div>
+                            <hr style="border-color: #4acabb;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p class="title">Rol: <span class="text" id="profile-role"></span></p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p class="title">Sede: <span class="text" id="profile-sede"></span></p>
+                                    <p class="title">Departamento: <span class="text" id="profile-dept"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 menu">
+                            <button onclick="showChangePassword()" class="btn btn-outline-primary"
+                                style="font-family: 'Pixelify Sans';"><i class="bi bi-key"></i> Cambiar
+                                Contraseña</button>
+                        </div>
+                    </div>
+
+                    <!-- Change Password View -->
+                    <div id="password-view" class="d-none">
+                        <h4><i class="bi bi-key"></i> Cambiar Contraseña</h4>
+                        <form id="change-password-form" class="mt-4 identification">
+                            <div class="mb-3">
+                                <label class="title">Contraseña Actual</label>
+                                <input type="password" name="password_actual" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="title">Nueva Contraseña</label>
+                                <input type="password" name="password_nueva" class="form-control" minlength="8"
+                                    required>
+                                <small class="text">Mínimo 8 caracteres</small>
+                            </div>
+                            <div class="mb-3">
+                                <label class="title">Confirmar Nueva Contraseña</label>
+                                <input type="password" name="password_confirmacion" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-circle"></i>
+                                Cambiar</button>
+                            <button type="button" onclick="showProfile()"
+                                class="btn btn-secondary mt-3">Cancelar</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+    <script src="../js/perfil.js"></script>
+</body>
+
+</html>

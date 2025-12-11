@@ -7,6 +7,7 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
+    'corsheaders',
     'cashier.apps.CashierConfig',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -15,6 +16,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -23,6 +25,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# CORS Configuration
+CORS_ALLOW_ALL_ORIGINS = True  # Development only
+CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'automatic_cashier.urls'
 
@@ -43,7 +49,10 @@ TEMPLATES = [
 ]
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+    BASE_DIR.parent.parent / 'frontend',  # Frontend static files
+]
 
 WSGI_APPLICATION = 'automatic_cashier.wsgi.application'
 

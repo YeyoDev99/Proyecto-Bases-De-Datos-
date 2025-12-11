@@ -11,28 +11,15 @@ from django.views.decorators.http import require_http_methods
 from datetime import datetime, date
 from functools import wraps
 import json
+from django.db import transaction, IntegrityError
 
 from .forms import (
     LoginForm, CambiarPasswordForm, PersonaForm, PacienteForm,
     CitaForm, DiagnosticoForm, PrescripcionForm, ActualizarStockForm,
-    EquipamientoForm, FiltroReportesForm, ejecutar_query, ejecutar_query_one
+    EquipamientoForm, FiltroReportesForm
 )
+from .db_utils import ejecutar_query, ejecutar_query_one, ejecutar_insert, ejecutar_update
 
-# ============================================================================
-# FUNCIONES HELPER
-# ============================================================================
-
-def ejecutar_insert(query, params=None):
-    """Ejecuta un INSERT y retorna el ID insertado"""
-    with connection.cursor() as cursor:
-        cursor.execute(query, params or [])
-        return cursor.lastrowid
-
-def ejecutar_update(query, params=None):
-    """Ejecuta un UPDATE/DELETE y retorna filas afectadas"""
-    with connection.cursor() as cursor:
-        cursor.execute(query, params or [])
-        return cursor.rowcount
 
 def get_user_from_session(request):
     """Obtiene datos del usuario desde la sesión"""
@@ -228,21 +215,11 @@ def lista_pacientes(request):
     user = get_user_from_session(request)
     busqueda = request.GET.get('q', '')
     
-    # Administrador solo ve pacientes de su sede (que tienen citas en su sede)
-    if user['rol'] == 'Administrador':
-        query = """
-            SELECT DISTINCT pac.cod_pac, p.nom_persona, p.apellido_persona, p.num_doc, 
-                   p.fecha_nac, p.genero, p.tel_persona, p.email_persona
-            FROM Pacientes pac
-            INNER JOIN Personas p ON pac.id_persona = p.id_persona
-            LEFT JOIN Citas c ON c.cod_pac = pac.cod_pac
-            WHERE (c.id_sede = %s OR c.id_cita IS NULL)
-        """
-        params = [user['id_sede']]
-        if busqueda:
-            query += " AND (p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s)"
-            params.extend([f'%{busqueda}%', f'%{busqueda}%', f'%{busqueda}%'])
-    else:
+
+    
+    # Lógica de permisos
+    if user['rol'] in ['Administrador', 'Administrativo']:
+        # Ven todos los pacientes
         query = """
             SELECT pac.cod_pac, p.nom_persona, p.apellido_persona, p.num_doc, 
                    p.fecha_nac, p.genero, p.tel_persona, p.email_persona
@@ -251,8 +228,39 @@ def lista_pacientes(request):
         """
         params = []
         if busqueda:
-            query += " WHERE p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s"
+            query += " WHERE (p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s)"
             params = [f'%{busqueda}%', f'%{busqueda}%', f'%{busqueda}%']
+
+    elif user['rol'] == 'Medico':
+        # Ven solo sus pacientes (con los que tienen citas)
+        query = """
+            SELECT DISTINCT pac.cod_pac, p.nom_persona, p.apellido_persona, p.num_doc, 
+                   p.fecha_nac, p.genero, p.tel_persona, p.email_persona
+            FROM Pacientes pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            INNER JOIN Citas c ON pac.cod_pac = c.cod_pac
+            WHERE c.id_emp = %s
+        """
+        params = [user['id_emp']]
+        if busqueda:
+            query += " AND (p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s)"
+            params.extend([f'%{busqueda}%', f'%{busqueda}%', f'%{busqueda}%'])
+    
+    else:
+         # Por defecto (Enfermeros, etc) ver todos? O restringir? 
+         # Asumiremos ver todos de la sede por si acaso, o Global si no hay sede en query.
+         # Para consistencia con codigo previo (que era else -> all), dejaremos Global.
+         query = """
+            SELECT pac.cod_pac, p.nom_persona, p.apellido_persona, p.num_doc, 
+                   p.fecha_nac, p.genero, p.tel_persona, p.email_persona
+            FROM Pacientes pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+        """
+         params = []
+         if busqueda:
+            query += " WHERE (p.num_doc LIKE %s OR p.nom_persona ILIKE %s OR p.apellido_persona ILIKE %s)"
+            params = [f'%{busqueda}%', f'%{busqueda}%', f'%{busqueda}%']
+
     query += " ORDER BY p.apellido_persona, p.nom_persona LIMIT 100"
     
     pacientes = ejecutar_query(query, params)
@@ -273,27 +281,33 @@ def nuevo_paciente(request):
             result = ejecutar_query_one("SELECT COALESCE(MAX(id_persona), 0) + 1 FROM Personas")
             id_persona = result[0]
             
-            # Insertar persona
-            query = """
-                INSERT INTO Personas (id_persona, nom_persona, apellido_persona, tipo_doc, 
-                    num_doc, fecha_nac, genero, dir_persona, tel_persona, email_persona, ciudad_residencia)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """
-            ejecutar_update(query, [
-                id_persona, data['nom_persona'], data['apellido_persona'], data['tipo_doc'],
-                data['num_doc'], data['fecha_nac'], data['genero'], data['dir_persona'],
-                data['tel_persona'], data['email_persona'], data['ciudad_residencia']
-            ])
-            
-            # Insertar paciente
-            result = ejecutar_query_one("SELECT COALESCE(MAX(cod_pac), 0) + 1 FROM Pacientes")
-            cod_pac = result[0]
-            ejecutar_update("INSERT INTO Pacientes (cod_pac, id_persona) VALUES (%s, %s)", 
-                          [cod_pac, id_persona])
-            
-            registrar_auditoria(user['id_emp'], 'INSERT', 'Pacientes', cod_pac, get_client_ip(request))
-            messages.success(request, 'Paciente registrado correctamente.')
-            return redirect('hospital:lista_pacientes')
+            try:
+                with transaction.atomic():
+                    # Insertar persona
+                    query = """
+                        INSERT INTO Personas (id_persona, nom_persona, apellido_persona, tipo_doc, 
+                            num_doc, fecha_nac, genero, dir_persona, tel_persona, email_persona, ciudad_residencia)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """
+                    ejecutar_update(query, [
+                        id_persona, data['nom_persona'], data['apellido_persona'], data['tipo_doc'],
+                        data['num_doc'], data['fecha_nac'], data['genero'], data['dir_persona'],
+                        data['tel_persona'], data['email_persona'], data['ciudad_residencia']
+                    ])
+                    
+                    # Insertar paciente
+                    result = ejecutar_query_one("SELECT COALESCE(MAX(cod_pac), 0) + 1 FROM Pacientes")
+                    cod_pac = result[0]
+                    ejecutar_update("INSERT INTO Pacientes (cod_pac, id_persona) VALUES (%s, %s)", 
+                                  [cod_pac, id_persona])
+                    
+                    registrar_auditoria(user['id_emp'], 'INSERT', 'Pacientes', cod_pac, get_client_ip(request))
+                    messages.success(request, 'Paciente registrado correctamente.')
+                    return redirect('hospital:lista_pacientes')
+            except IntegrityError as e:
+                messages.error(request, f'Error al registrar paciente: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'Ocurrió un error inesperado: {str(e)}')
     else:
         form = PacienteForm()
     return render(request, 'cashier/gestion_pacientes.html', {'user': user, 'form': form, 'nuevo': True})
@@ -375,47 +389,99 @@ def editar_paciente(request, pac_id):
 def lista_citas(request):
     """Lista todas las citas"""
     user = get_user_from_session(request)
-    query = """
-        SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
-               p.nom_persona || ' ' || p.apellido_persona as paciente,
-               pe.nom_persona || ' ' || pe.apellido_persona as medico, s.nom_sede
-        FROM Citas c
-        INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
-        INNER JOIN Personas p ON pac.id_persona = p.id_persona
-        INNER JOIN Empleados e ON c.id_emp = e.id_emp
-        INNER JOIN Personas pe ON e.id_persona = pe.id_persona
-        INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
-        WHERE c.id_sede = %s ORDER BY c.fecha_hora DESC LIMIT 100
-    """
-    citas = ejecutar_query(query, [user['id_sede']])
+    # Validar permisos
+    if user['rol'] == 'Enfermero':
+        messages.error(request, 'No tiene permisos para ver citas.')
+        return redirect('hospital:dashboard')
+
+    if user['rol'] in ['Administrador', 'Administrativo']:
+        # Pueden ver todas las citas (Administrativo ver todas para todas las sedes)
+        query = """
+            SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
+                   p.nom_persona || ' ' || p.apellido_persona as paciente,
+                   pe.nom_persona || ' ' || pe.apellido_persona as medico, s.nom_sede
+            FROM Citas c
+            INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            INNER JOIN Empleados e ON c.id_emp = e.id_emp
+            INNER JOIN Personas pe ON e.id_persona = pe.id_persona
+            INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
+            ORDER BY c.fecha_hora DESC LIMIT 100
+        """
+        params = []
+    elif user['rol'] == 'Medico':
+        # Medicos solo ven sus citas
+        query = """
+            SELECT c.id_cita, c.fecha_hora, c.tipo_servicio, c.estado, c.motivo,
+                   p.nom_persona || ' ' || p.apellido_persona as paciente,
+                   pe.nom_persona || ' ' || pe.apellido_persona as medico, s.nom_sede
+            FROM Citas c
+            INNER JOIN Pacientes pac ON c.cod_pac = pac.cod_pac
+            INNER JOIN Personas p ON pac.id_persona = p.id_persona
+            INNER JOIN Empleados e ON c.id_emp = e.id_emp
+            INNER JOIN Personas pe ON e.id_persona = pe.id_persona
+            INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
+            WHERE c.id_emp = %s ORDER BY c.fecha_hora DESC LIMIT 100
+        """
+        params = [user['id_emp']]
+    
+    citas = ejecutar_query(query, params)
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'citas': citas})
 
 @login_required_custom
-@role_required('Administrativo', 'Administrador')
+@login_required_custom
 def nueva_cita(request):
     """Programar nueva cita"""
     user = get_user_from_session(request)
+    
+    # Enfermeros no pueden agendar
+    if user['rol'] == 'Enfermero':
+        messages.error(request, 'No tiene permisos para agendar citas.')
+        return redirect('hospital:lista_citas')
+
+    # Determinar contexto de sede (Global para Admin/Administrativo, Local para Medico)
+    id_sede_form = None if user['rol'] in ['Administrador', 'Administrativo'] else user['id_sede']
+
     if request.method == 'POST':
-        form = CitaForm(user['id_sede'], request.POST)
+        form = CitaForm(id_sede_form, request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            result = ejecutar_query_one("SELECT COALESCE(MAX(id_cita), 0) + 1 FROM Citas")
-            id_cita = result[0]
-            query = """
-                INSERT INTO Citas (id_cita, id_sede, id_dept, id_emp, cod_pac, 
-                    fecha_hora, fecha_hora_solicitada, tipo_servicio, estado, motivo)
-                VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
-            """
-            ejecutar_update(query, [
-                id_cita, user['id_sede'], data['id_dept'], data['id_emp'],
-                data['cod_pac'], data['fecha_hora'], data['tipo_servicio'],
-                data['estado'], data['motivo']
-            ])
-            registrar_auditoria(user['id_emp'], 'INSERT', 'Citas', id_cita, get_client_ip(request))
-            messages.success(request, 'Cita programada correctamente.')
-            return redirect('hospital:lista_citas')
+            
+            # Obtener sede correcta
+            id_sede_final = data['id_sede_field'] if 'id_sede_field' in data and data['id_sede_field'] else user['id_sede']
+            
+            # Validar que si es medico, se asigne a si mismo
+            if user['rol'] == 'Medico':
+                if int(data['id_emp']) != int(user['id_emp']):
+                    messages.error(request, 'Solo puede agendar citas para usted mismo.')
+                    return render(request, 'cashier/programar_cita.html', {'user': user, 'form': form})
+            
+            try:
+                with transaction.atomic():
+                    result = ejecutar_query_one("SELECT COALESCE(MAX(id_cita), 0) + 1 FROM Citas")
+                    id_cita = result[0]
+                    query = """
+                        INSERT INTO Citas (id_cita, id_sede, id_dept, id_emp, cod_pac, 
+                            fecha_hora, fecha_hora_solicitada, tipo_servicio, estado, motivo)
+                        VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s, %s, %s)
+                    """
+                    ejecutar_update(query, [
+                        id_cita, id_sede_final, data['id_dept'], data['id_emp'],
+                        data['cod_pac'], data['fecha_hora'], data['tipo_servicio'],
+                        data['estado'], data['motivo']
+                    ])
+                    registrar_auditoria(user['id_emp'], 'INSERT', 'Citas', id_cita, get_client_ip(request))
+                    messages.success(request, 'Cita programada correctamente.')
+                    return redirect('hospital:lista_citas')
+            except IntegrityError as e:
+                messages.error(request, f'Error de datos: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'Error inesperado: {str(e)}')
     else:
-        form = CitaForm(user['id_sede'])
+        form = CitaForm(id_sede_form)
+        # Si es médico, preseleccionar su ID si posible, pero el form ya carga lista. 
+        # Podriamos fijar initial si el form lo permitiera, pero ya validamos en POST.
+
     return render(request, 'cashier/programar_cita.html', {'user': user, 'form': form})
 
 @login_required_custom
@@ -438,6 +504,21 @@ def detalle_cita(request, cita_id):
         WHERE c.id_cita = %s
     """
     cita = ejecutar_query_one(quote, [cita_id])
+    
+    if not cita:
+        messages.error(request, 'Cita no encontrada.')
+        return redirect('hospital:lista_citas')
+
+    # Validar permisos
+    if user['rol'] == 'Enfermero':
+        messages.error(request, 'No tiene permisos para ver detalles de citas.')
+        return redirect('hospital:dashboard')
+        
+    if user['rol'] == 'Medico':
+        # Verificar que la cita le pertenezca
+        if cita[3] != user['id_emp']:
+            messages.error(request, 'No tiene permisos para ver esta cita.')
+            return redirect('hospital:lista_citas')
 
     # Buscar si tiene historia clínica asociada a través de un diagnóstico
     cod_hist = None
@@ -452,34 +533,96 @@ def detalle_cita(request, cita_id):
     return render(request, 'cashier/citas_pendientes.html', {'user': user, 'cita': cita, 'detalle': True, 'cod_hist': cod_hist})
 
 @login_required_custom
+@login_required_custom
 @role_required('Administrativo', 'Administrador')
 def editar_cita(request, cita_id):
     """Editar cita"""
     user = get_user_from_session(request)
+    
+    # Obtener cita primero para validar sede
+    cita_actual = ejecutar_query_one("SELECT id_sede FROM Citas WHERE id_cita = %s", [cita_id])
+    if not cita_actual:
+        messages.error(request, 'Cita no encontrada.')
+        return redirect('hospital:lista_citas')
+    
+    # Validar permisos de sede para Administrativo
+    if user['rol'] == 'Administrativo' and cita_actual[0] != user['id_sede']:
+        messages.error(request, 'Solo puede modificar citas de su propia sede.')
+        return redirect('hospital:lista_citas')
+
+    # Determinar si mostramos selector de sede (solo Admin, Administrativo está lockeado a su sede o a la de la cita?)
+    # Administrativo SOLO edita su sede, asi que form con sede fija.
+    # Administrador puede editar todo, podria cambiar sede? Asumamos que si.
+    id_sede_form = None if user['rol'] == 'Administrador' else user['id_sede']
+
     if request.method == 'POST':
-        form = CitaForm(user['id_sede'], request.POST)
+        form = CitaForm(id_sede_form, request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            query = """
-                UPDATE Citas SET id_dept=%s, id_emp=%s, cod_pac=%s, 
-                    fecha_hora=%s, tipo_servicio=%s, estado=%s, motivo=%s
-                WHERE id_cita = %s
-            """
-            ejecutar_update(query, [
-                data['id_dept'], data['id_emp'], data['cod_pac'],
-                data['fecha_hora'], data['tipo_servicio'], data['estado'],
-                data['motivo'], cita_id
-            ])
-            registrar_auditoria(user['id_emp'], 'UPDATE', 'Citas', cita_id, get_client_ip(request))
-            messages.success(request, 'Cita actualizada.')
-            return redirect('hospital:detalle_cita', cita_id=cita_id)
-    return redirect('hospital:lista_citas')
+            
+            # Si es admin, puede cambiar sede. Si es administrativo, mantiene la original o user sede.
+            id_sede_new = data['id_sede_field'] if 'id_sede_field' in data and data['id_sede_field'] else cita_actual[0]
 
+            try:
+                with transaction.atomic():
+                    query = """
+                        UPDATE Citas SET id_sede=%s, id_dept=%s, id_emp=%s, cod_pac=%s, 
+                            fecha_hora=%s, tipo_servicio=%s, estado=%s, motivo=%s
+                        WHERE id_cita = %s
+                    """
+                    ejecutar_update(query, [
+                        id_sede_new, data['id_dept'], data['id_emp'], data['cod_pac'],
+                        data['fecha_hora'], data['tipo_servicio'], data['estado'],
+                        data['motivo'], cita_id
+                    ])
+                    registrar_auditoria(user['id_emp'], 'UPDATE', 'Citas', cita_id, get_client_ip(request))
+                    messages.success(request, 'Cita actualizada.')
+                    return redirect('hospital:detalle_cita', cita_id=cita_id)
+            except Exception as e:
+                messages.error(request, f'Error al actualizar cita: {str(e)}')
+    
+    # Prepopulación del form seria ideal aqui, pero requeriria instanciar con initial data.
+    # Por simplicidad y dado que CitaForm no toma instancia, redirigimos si es GET o asumimos nueva carga limpiada.
+    # (El código original no prepolulaba el form en GET en 'editar_cita', solo mostraba redirect o form vacio si fallaba id??
+    # Ah, el original: if POST... else redirect lista_citas. OSEA NO HABIA FORM DE EDICION VISUAL??
+    # Espera, mi lectura: "return redirect('hospital:lista_citas')" en el `else`. 
+    # ESO SIGNIFICA QUE NO HABIA PAGINA DE EDICION, SOLO PROCESABAN POST?? 
+    # O quizas el usuario nunca probó editar.
+    # Voy a asumir que necesitamos renderizar la template con los datos actuales.)
+    
+    # Cargar datos actuales para el form
+    current_data = ejecutar_query_one("""
+        SELECT id_sede, id_dept, id_emp, cod_pac, fecha_hora, tipo_servicio, estado, motivo
+        FROM Citas WHERE id_cita = %s
+    """, [cita_id])
+    
+    form = CitaForm(id_sede_form, initial={
+        'id_sede_field': current_data[0],
+        'id_dept': current_data[1],
+        'id_emp': current_data[2],
+        'cod_pac': current_data[3],
+        'fecha_hora': current_data[4],
+        'tipo_servicio': current_data[5],
+        'estado': current_data[6],
+        'motivo': current_data[7]
+    })
+    
+    return render(request, 'cashier/programar_cita.html', {'user': user, 'form': form, 'editar': True, 'cita_id': cita_id})
+
+@login_required_custom
 @login_required_custom
 @role_required('Administrativo', 'Administrador')
 def cancelar_cita(request, cita_id):
     """Cancelar cita"""
     user = get_user_from_session(request)
+    
+    # Validar permisos de sede para Administrativo
+    if user['rol'] == 'Administrativo':
+        cita = ejecutar_query_one("SELECT id_sede FROM Citas WHERE id_cita = %s", [cita_id])
+        if not cita or cita[0] != user['id_sede']:
+            messages.error(request, 'Solo puede cancelar citas de su propia sede.')
+            return redirect('hospital:lista_citas')
+
     query = "UPDATE Citas SET estado = 'CANCELADA' WHERE id_cita = %s"
     ejecutar_update(query, [cita_id])
     registrar_auditoria(user['id_emp'], 'UPDATE', 'Citas', cita_id, get_client_ip(request))
@@ -626,39 +769,66 @@ def historias_paciente(request, pac_id):
     return render(request, 'cashier/ver_historial.html', {'user': user, 'historias': historias, 'pac_id': pac_id})
 
 @login_required_custom
+@login_required_custom
 @role_required('Medico')
 def registrar_diagnostico(request, cita_id):
-    """Registrar diagnóstico"""
+    """Registrar diagnóstico (Atender cita)"""
     user = get_user_from_session(request)
+    
+    # Verificar que la cita pertenezca al médico
+    cita_check = ejecutar_query_one("SELECT id_emp, estado FROM Citas WHERE id_cita = %s", [cita_id])
+    if not cita_check:
+        messages.error(request, 'Cita no encontrada.')
+        return redirect('hospital:lista_citas')
+    
+    if cita_check[0] != user['id_emp']:
+        messages.error(request, 'Solo puede atender citas asignadas a usted.')
+        return redirect('hospital:lista_citas')
+        
+    if cita_check[1] == 'CANCELADA':
+        messages.error(request, 'No puede atender una cita cancelada.')
+        return redirect('hospital:lista_citas')
+
     if request.method == 'POST':
         form = DiagnosticoForm(request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            # Obtener o crear historia clínica
-            cita = ejecutar_query_one("SELECT cod_pac FROM Citas WHERE id_cita = %s", [cita_id])
-            cod_pac = cita[0]
-            
-            result = ejecutar_query_one("SELECT COALESCE(MAX(cod_hist), 0) + 1 FROM Historias_Clinicas")
-            cod_hist = result[0]
-            ejecutar_update(
-                "INSERT INTO Historias_Clinicas (cod_hist, cod_pac) VALUES (%s, %s)",
-                [cod_hist, cod_pac]
-            )
-            
-            result = ejecutar_query_one("SELECT COALESCE(MAX(id_diagnostico), 0) + 1 FROM Diagnostico")
-            id_diag = result[0]
-            query = """
-                INSERT INTO Diagnostico (id_diagnostico, id_enfermedad, id_cita, cod_hist, observacion)
-                VALUES (%s, %s, %s, %s, %s)
-            """
-            ejecutar_update(query, [id_diag, data['id_enfermedad'], cita_id, cod_hist, data['observacion']])
-            
-            # Actualizar estado de cita
-            ejecutar_update("UPDATE Citas SET estado = 'COMPLETADA' WHERE id_cita = %s", [cita_id])
-            
-            registrar_auditoria(user['id_emp'], 'INSERT', 'Historias_Clinicas', cod_hist, get_client_ip(request))
-            messages.success(request, 'Diagnóstico registrado.')
-            return redirect('hospital:detalle_cita', cita_id=cita_id)
+            try:
+                with transaction.atomic():
+                    # Obtener o crear historia clínica
+                    cita = ejecutar_query_one("SELECT cod_pac FROM Citas WHERE id_cita = %s", [cita_id])
+                    cod_pac = cita[0]
+                    
+                    # Verificar si existe historia
+                    hist_exist = ejecutar_query_one("SELECT cod_hist FROM Historias_Clinicas WHERE cod_pac = %s", [cod_pac])
+                    if hist_exist:
+                        cod_hist = hist_exist[0]
+                    else:
+                        result = ejecutar_query_one("SELECT COALESCE(MAX(cod_hist), 0) + 1 FROM Historias_Clinicas")
+                        cod_hist = result[0]
+                        ejecutar_update(
+                            "INSERT INTO Historias_Clinicas (cod_hist, cod_pac) VALUES (%s, %s)",
+                            [cod_hist, cod_pac]
+                        )
+                    
+                    result = ejecutar_query_one("SELECT COALESCE(MAX(id_diagnostico), 0) + 1 FROM Diagnostico")
+                    id_diag = result[0]
+                    query = """
+                        INSERT INTO Diagnostico (id_diagnostico, id_enfermedad, id_cita, cod_hist, observacion)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """
+                    ejecutar_update(query, [id_diag, data['id_enfermedad'], cita_id, cod_hist, data['observacion']])
+                    
+                    # Actualizar estado de cita
+                    ejecutar_update("UPDATE Citas SET estado = 'COMPLETADA' WHERE id_cita = %s", [cita_id])
+                    
+                    registrar_auditoria(user['id_emp'], 'INSERT', 'Historias_Clinicas', cod_hist, get_client_ip(request))
+                    messages.success(request, 'Diagnóstico registrado.')
+                    return redirect('hospital:detalle_cita', cita_id=cita_id)
+            except IntegrityError as e:
+                messages.error(request, f'Error de integridad de datos: {str(e)}')
+            except Exception as e:
+                messages.error(request, f'Error al registrar diagnóstico: {str(e)}')
     else:
         form = DiagnosticoForm()
     return render(request, 'cashier/registrar_diagnostico.html', {'user': user, 'form': form, 'cita_id': cita_id})
@@ -751,29 +921,33 @@ def prescribir_medicamento(request, hist_id):
         form = PrescripcionForm(user['id_sede'], request.POST)
         if form.is_valid():
             data = form.cleaned_data
-            # Obtener última cita del paciente
-            cita = ejecutar_query_one(
-                "SELECT c.id_cita FROM Citas c INNER JOIN Historias_Clinicas hc ON c.cod_pac = hc.cod_pac WHERE hc.cod_hist = %s ORDER BY c.fecha_hora DESC LIMIT 1",
-                [hist_id]
-            )
-            result = ejecutar_query_one("SELECT COALESCE(MAX(id_presc), 0) + 1 FROM Prescripciones")
-            id_presc = result[0]
-            query = """
-                INSERT INTO Prescripciones (id_presc, cod_med, cod_hist, id_cita, dosis, frecuencia, duracion_dias, cantidad_total, fecha_emision)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_DATE)
-            """
-            ejecutar_update(query, [
-                id_presc, data['cod_med'], hist_id, cita[0] if cita else None,
-                data['dosis'], data['frecuencia'], data['duracion_dias'], data['cantidad_total']
-            ])
-            # Actualizar inventario
-            ejecutar_update(
-                "UPDATE Inventario_Farmacia SET stock_actual = stock_actual - %s WHERE cod_med = %s AND id_sede = %s",
-                [data['cantidad_total'], data['cod_med'], user['id_sede']]
-            )
-            registrar_auditoria(user['id_emp'], 'INSERT', 'Prescripciones', id_presc, get_client_ip(request))
-            messages.success(request, 'Medicamento prescrito.')
-            return redirect('hospital:lista_prescripciones')
+            try:
+                with transaction.atomic():
+                    # Obtener última cita del paciente
+                    cita = ejecutar_query_one(
+                        "SELECT c.id_cita FROM Citas c INNER JOIN Historias_Clinicas hc ON c.cod_pac = hc.cod_pac WHERE hc.cod_hist = %s ORDER BY c.fecha_hora DESC LIMIT 1",
+                        [hist_id]
+                    )
+                    result = ejecutar_query_one("SELECT COALESCE(MAX(id_presc), 0) + 1 FROM Prescripciones")
+                    id_presc = result[0]
+                    query = """
+                        INSERT INTO Prescripciones (id_presc, cod_med, cod_hist, id_cita, dosis, frecuencia, duracion_dias, cantidad_total, fecha_emision)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURRENT_DATE)
+                    """
+                    ejecutar_update(query, [
+                        id_presc, data['cod_med'], hist_id, cita[0] if cita else None,
+                        data['dosis'], data['frecuencia'], data['duracion_dias'], data['cantidad_total']
+                    ])
+                    # Actualizar inventario
+                    ejecutar_update(
+                        "UPDATE Inventario_Farmacia SET stock_actual = stock_actual - %s WHERE cod_med = %s AND id_sede = %s",
+                        [data['cantidad_total'], data['cod_med'], user['id_sede']]
+                    )
+                    registrar_auditoria(user['id_emp'], 'INSERT', 'Prescripciones', id_presc, get_client_ip(request))
+                    messages.success(request, 'Medicamento prescrito.')
+                    return redirect('hospital:lista_prescripciones')
+            except Exception as e:
+                messages.error(request, f'Error al prescribir medicamento: {str(e)}')
     else:
         form = PrescripcionForm(user['id_sede'])
     
@@ -1022,15 +1196,12 @@ def reporte_medicamentos_recetados(request):
     """Medicamentos más recetados por sede"""
     user = get_user_from_session(request)
     query = """
-        SELECT s.nom_sede, s.ciudad, m.nom_med, COUNT(pr.id_presc) AS total_prescripciones,
-               SUM(pr.cantidad_total) AS cantidad_total_recetada
-        FROM Prescripciones pr
-        INNER JOIN Catalogo_Medicamentos m ON pr.cod_med = m.cod_med
-        INNER JOIN Citas c ON pr.id_cita = c.id_cita
-        INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
-        WHERE pr.fecha_emision >= CURRENT_DATE - INTERVAL '1 month'
-        GROUP BY s.id_sede, s.nom_sede, s.ciudad, m.cod_med, m.nom_med
-        ORDER BY s.nom_sede, total_prescripciones DESC
+        SELECT nom_sede, ciudad, nom_med, SUM(total_prescripciones) as total_prescripciones,
+               SUM(cantidad_total_recetada) as cantidad_total_recetada
+        FROM vista_medicamentos_recetados_sede
+        WHERE mes >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month')
+        GROUP BY nom_sede, ciudad, nom_med
+        ORDER BY nom_sede, total_prescripciones DESC
     """
     datos = ejecutar_query(query)
     return render(request, 'cashier/reportes_analitica.html', {'user': user, 'datos': datos, 'tipo': 'medicamentos'})
@@ -1040,19 +1211,8 @@ def reporte_medicos_consultas(request):
     """Médicos con más consultas atendidas"""
     user = get_user_from_session(request)
     query = """
-        SELECT p.nom_persona || ' ' || p.apellido_persona AS nombre_medico,
-               s.nom_sede, d.nom_dept, esp.nombre_esp AS especialidad,
-               DATE_TRUNC('week', c.fecha_hora) AS semana, COUNT(c.id_cita) AS total_consultas
-        FROM Citas c
-        INNER JOIN Empleados e ON c.id_emp = e.id_emp
-        INNER JOIN Personas p ON e.id_persona = p.id_persona
-        INNER JOIN Roles r ON e.id_rol = r.id_rol
-        INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
-        INNER JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
-        LEFT JOIN Emp_Posee_Esp epe ON e.id_emp = epe.id_emp
-        LEFT JOIN Especialidades esp ON epe.id_especialidad = esp.id_especialidad
-        WHERE r.nombre_rol = 'Medico' AND c.estado = 'COMPLETADA'
-        GROUP BY e.id_emp, p.nom_persona, p.apellido_persona, s.nom_sede, d.nom_dept, esp.nombre_esp, DATE_TRUNC('week', c.fecha_hora)
+        SELECT nombre_medico, nom_sede, nom_dept, especialidad, semana, total_consultas
+        FROM vista_medicos_consultas
         ORDER BY semana DESC, total_consultas DESC LIMIT 20
     """
     datos = ejecutar_query(query)
@@ -1063,14 +1223,12 @@ def reporte_tiempos_atencion(request):
     """Tiempo promedio de espera entre solicitud y cita"""
     user = get_user_from_session(request)
     query = """
-        SELECT s.nom_sede, d.nom_dept,
-               ROUND(AVG(EXTRACT(EPOCH FROM (c.fecha_hora - c.fecha_hora_solicitada))/86400)::numeric, 2) AS dias_promedio,
-               COUNT(*) AS total_casos
-        FROM Citas c
-        INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
-        INNER JOIN Departamentos d ON c.id_dept = d.id_dept AND c.id_sede = d.id_sede
-        WHERE c.estado = 'COMPLETADA'
-        GROUP BY s.id_sede, s.nom_sede, d.nom_dept ORDER BY dias_promedio
+        SELECT nom_sede, nom_dept, 
+               ROUND(AVG(horas_promedio_atencion / 24)::numeric, 2) as dias_promedio,
+               SUM(total_casos) as total_casos
+        FROM vista_tiempos_atencion
+        GROUP BY nom_sede, nom_dept
+        ORDER BY dias_promedio
     """
     datos = ejecutar_query(query)
     return render(request, 'cashier/reportes_analitica.html', {'user': user, 'datos': datos, 'tipo': 'tiempos'})
@@ -1080,15 +1238,11 @@ def reporte_pacientes_enfermedad(request):
     """Total de pacientes por enfermedad y sede"""
     user = get_user_from_session(request)
     query = """
-        SELECT s.nom_sede, enf.nombre_enfermedad, COUNT(DISTINCT hc.cod_pac) AS total_pacientes,
-               COUNT(diag.id_diagnostico) AS total_diagnosticos
-        FROM Diagnostico diag
-        INNER JOIN Enfermedades enf ON diag.id_enfermedad = enf.id_enfermedad
-        INNER JOIN Historias_Clinicas hc ON diag.cod_hist = hc.cod_hist
-        INNER JOIN Citas c ON diag.id_cita = c.id_cita
-        INNER JOIN Sedes_Hospitalarias s ON c.id_sede = s.id_sede
-        GROUP BY s.id_sede, s.nom_sede, enf.id_enfermedad, enf.nombre_enfermedad
-        ORDER BY s.nom_sede, total_pacientes DESC
+        SELECT nom_sede, nombre_enfermedad, SUM(pacientes_afectados) as total_pacientes,
+               SUM(total_diagnosticos) as total_diagnosticos
+        FROM vista_enfermedades_por_sede
+        GROUP BY nom_sede, nombre_enfermedad
+        ORDER BY nom_sede, total_pacientes DESC
     """
     datos = ejecutar_query(query)
     return render(request, 'cashier/reportes_analitica.html', {'user': user, 'datos': datos, 'tipo': 'enfermedades'})
@@ -1099,15 +1253,14 @@ def reporte_equipamiento_compartido(request):
     user = get_user_from_session(request)
     query = """
         WITH equipo_compartido AS (
-            SELECT eq.nom_eq, eq.marca_modelo, COUNT(DISTINCT eq.id_sede) AS sedes_con_equipo
-            FROM Equipamiento eq GROUP BY eq.nom_eq, eq.marca_modelo HAVING COUNT(DISTINCT eq.id_sede) > 1
+            SELECT nom_eq, marca_modelo, COUNT(DISTINCT id_sede) AS sedes_con_equipo
+            FROM vista_equipamiento_departamentos
+            GROUP BY nom_eq, marca_modelo HAVING COUNT(DISTINCT id_sede) > 1
         )
-        SELECT ec.nom_eq, ec.marca_modelo, s.nom_sede, d.nom_dept, eq.estado_equipo
-        FROM equipo_compartido ec
-        INNER JOIN Equipamiento eq ON ec.nom_eq = eq.nom_eq AND ec.marca_modelo = eq.marca_modelo
-        INNER JOIN Sedes_Hospitalarias s ON eq.id_sede = s.id_sede
-        INNER JOIN Departamentos d ON eq.id_dept = d.id_dept AND eq.id_sede = d.id_sede
-        ORDER BY ec.nom_eq, s.nom_sede
+        SELECT v.nom_eq, v.marca_modelo, v.nom_sede, v.nom_dept, v.estado_equipo
+        FROM vista_equipamiento_departamentos v
+        INNER JOIN equipo_compartido ec ON v.nom_eq = ec.nom_eq AND v.marca_modelo = ec.marca_modelo
+        ORDER BY v.nom_eq, v.nom_sede
     """
     datos = ejecutar_query(query)
     return render(request, 'cashier/reportes_analitica.html', {'user': user, 'datos': datos, 'tipo': 'equipamiento'})
@@ -1486,6 +1639,44 @@ def api_buscar_enfermedades(request):
     query = "SELECT id_enfermedad, nombre_enfermedad FROM Enfermedades WHERE nombre_enfermedad ILIKE %s LIMIT 10"
     results = ejecutar_query(query, [f'%{q}%'])
     return JsonResponse({'enfermedades': [{'id': r[0], 'nombre': r[1]} for r in results]})
+
+@login_required_custom
+def api_obtener_departamentos(request):
+    """API: Obtener departamentos por sede"""
+    sede_id = request.GET.get('sede_id')
+    if not sede_id:
+        return JsonResponse({'departamentos': []})
+    
+    query = """
+        SELECT id_dept, nom_dept
+        FROM Departamentos
+        WHERE id_sede = %s
+        ORDER BY nom_dept
+    """
+    results = ejecutar_query(query, [sede_id])
+    return JsonResponse({'departamentos': [{'id': r[0], 'nombre': r[1]} for r in results]})
+
+@login_required_custom
+def api_obtener_medicos_por_dept(request):
+    """API: Obtener médicos por departamento y sede"""
+    sede_id = request.GET.get('sede_id')
+    dept_id = request.GET.get('dept_id')
+    
+    if not sede_id or not dept_id:
+        return JsonResponse({'medicos': []})
+        
+    query = """
+        SELECT e.id_emp, p.nom_persona || ' ' || p.apellido_persona
+        FROM Empleados e
+        INNER JOIN Personas p ON e.id_persona = p.id_persona
+        INNER JOIN Roles r ON e.id_rol = r.id_rol
+        WHERE r.nombre_rol = 'Medico' 
+        AND e.id_sede = %s AND e.id_dept = %s
+        AND e.activo = TRUE
+        ORDER BY p.apellido_persona
+    """
+    results = ejecutar_query(query, [sede_id, dept_id])
+    return JsonResponse({'medicos': [{'id': r[0], 'nombre': r[1]} for r in results]})
 
 # ============================================================================
 # 14. PÁGINAS AUXILIARES

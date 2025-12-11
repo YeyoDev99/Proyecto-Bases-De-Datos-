@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIS+ Sistema Hospitalario - Menú</title>
+    <meta name="description" content="Sistema Hospitalario Integral con Base de Datos Distribuida">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <main>
+        <div class="container-fluid">
+            <!-- Header -->
+            <div class="row py-3 app-header">
+                <div class="col-md-6">
+                    <span class="text-white" style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                        <i class="bi bi-hospital"></i> HIS+ | <span id="header-user-name">Usuario</span>
+                    </span>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="text-white" style="font-family: 'Pixelify Sans';">
+                        <span id="header-user-role">Rol</span> - Sede: <span id="header-user-sede">Sede</span>
+                    </span>
+                    <a href="index.html" class="exit ms-3">
+                        <i class="bi bi-box-arrow-right"></i> Salir
+                    </a>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="messages-container" class="row mt-2"></div>
+
+            <div class="row mt-4">
+                <!-- Sidebar -->
+                <div class="col-md-3">
+                    <div class="menu-container">
+                        <h4><i class="bi bi-grid-3x3-gap"></i> Menú</h4>
+                        <div class="menu d-flex flex-column gap-2" id="sidebar-menu">
+                            <a href="menu.html" class="p-2"><i class="bi bi-house"></i> Inicio</a>
+                            <a href="gestion_pacientes.html" class="p-2"><i class="bi bi-people"></i> Pacientes</a>
+                            <a href="lista_citas.html" class="p-2"><i class="bi bi-calendar-check"></i> Citas</a>
+                            <a href="lista_historias.html" class="p-2"><i class="bi bi-file-medical"></i> Historias
+                                Clínicas</a>
+                            <a href="lista_prescripciones.html" class="p-2"><i class="bi bi-prescription2"></i>
+                                Prescripciones</a>
+                            <a href="inventario_farmacia.html" class="p-2"><i class="bi bi-capsule"></i> Farmacia</a>
+                            <a href="lista_equipamiento.html" class="p-2"><i class="bi bi-gear"></i> Equipamiento</a>
+                            <a href="menu_reportes.html" class="p-2"><i class="bi bi-graph-up"></i> Reportes</a>
+
+                            <a href="auditoria_accesos.html" class="p-2 role-restricted"
+                                data-roles="Administrador,Auditor"><i class="bi bi-shield-check"></i> Auditoría</a>
+                            <a href="admin_principal.html" class="p-2 role-restricted" data-roles="Administrador"><i
+                                    class="bi bi-sliders"></i> Administración</a>
+
+                            <a href="perfil.html" class="p-2"><i class="bi bi-person-circle"></i> Mi Perfil</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="col-md-9">
+                    <div class="menu-container">
+
+                        <!-- Dashboard Stats -->
+                        <div id="dashboard-stats">
+                            <h4><i class="bi bi-speedometer2"></i> Panel de Control</h4>
+                            <div class="row mt-4">
+                                <div class="col-md-3">
+                                    <div class="identification text-center">
+                                        <div class="title">Citas Hoy</div>
+                                        <div class="text" style="font-size: 2.5rem;" id="stat-citas-hoy">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="identification text-center">
+                                        <div class="title">Atendidos</div>
+                                        <div class="text" style="font-size: 2.5rem;" id="stat-pacientes-atendidos">-
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="identification text-center">
+                                        <div class="title">Pendientes</div>
+                                        <div class="text" style="font-size: 2.5rem;" id="stat-citas-pendientes">-</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="identification text-center">
+                                        <div class="title">Alertas Stock</div>
+                                        <div class="text" style="font-size: 2.5rem;" id="stat-alertas-stock">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div id="quick-actions" class="mt-4">
+                            <h4><i class="bi bi-lightning"></i> Acciones Rápidas</h4>
+                            <div class="row mt-3">
+                                <div class="col-md-4 role-restricted" data-roles="Administrativo,Administrador">
+                                    <a href="nueva_cita.html" class="btn w-100 p-3"
+                                        style="background-color: #4acabb; font-family: 'Pixelify Sans'; font-size: 1.2rem;">
+                                        <i class="bi bi-calendar-plus"></i> Nueva Cita
+                                    </a>
+                                </div>
+                                <div class="col-md-4 role-restricted" data-roles="Administrativo,Administrador">
+                                    <a href="nuevo_paciente.html" class="btn w-100 p-3"
+                                        style="background-color: #4acabb; font-family: 'Pixelify Sans'; font-size: 1.2rem;">
+                                        <i class="bi bi-person-plus"></i> Nuevo Paciente
+                                    </a>
+                                </div>
+                                <div class="col-md-4">
+                                    <a href="citas_pendientes.html" class="btn w-100 p-3"
+                                        style="background-color: #4acabb; font-family: 'Pixelify Sans'; font-size: 1.2rem;">
+                                        <i class="bi bi-clock-history"></i> Citas del Día
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Panel de Administración (Shown only if admin logic applies) -->
+                        <div id="admin-panel" class="d-none role-restricted" data-roles="Administrador">
+                            <h4><i class="bi bi-sliders"></i> Panel de Administración</h4>
+                            <div class="row mt-3 menu">
+                                <div class="col-md-4"><a href="admin_empleados.html" class="p-2 d-block">Empleados</a>
+                                </div>
+                                <div class="col-md-4"><a href="admin_sedes.html" class="p-2 d-block">Sedes</a></div>
+                                <div class="col-md-4"><a href="admin_departamentos.html"
+                                        class="p-2 d-block">Departamentos</a></div>
+                                <div class="col-md-4 mt-2"><a href="admin_roles.html" class="p-2 d-block">Roles</a>
+                                </div>
+                                <div class="col-md-4 mt-2"><a href="admin_especialidades.html"
+                                        class="p-2 d-block">Especialidades</a></div>
+                            </div>
+                        </div>
+
+                        <!-- Other sections (Sedes, Departamentos, etc.) can be loaded dynamically or kept static for now. 
+                             I'll add placeholders for them to be populated by JS if data exists. -->
+
+                        <div id="sedes-section"></div>
+                        <div id="departamentos-section"></div>
+                        <div id="roles-section"></div>
+                        <div id="especialidades-section"></div>
+
+                        <!-- About / Help -->
+                        <div class="mt-5">
+                            <h4><i class="bi bi-info-circle"></i> Acerca del Sistema</h4>
+                            <div class="text mt-3">
+                                <p><strong>HIS+</strong> v1.0</p>
+                                <p>Sistema de Gestión Hospitalaria con Base de Datos Distribuida</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+    <script src="../js/menu.js"></script>
+</body>
+
+</html>

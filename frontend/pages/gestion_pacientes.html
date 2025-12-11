@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIS+ Sistema Hospitalario - Pacientes</title>
+    <meta name="description" content="Sistema Hospitalario Integral">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row py-3 app-header">
+            <div class="col-md-6">
+                <a href="menu.html" class="text-white text-decoration-none"
+                    style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                    <i class="bi bi-hospital"></i> HIS+ | Pacientes
+                </a>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="menu.html" class="exit"><i class="bi bi-arrow-left"></i> Menú</a>
+                <a href="index.html" class="exit ms-3"><i class="bi bi-box-arrow-right"></i> Salir</a>
+            </div>
+        </div>
+
+        <div id="messages-container" class="row mt-2"></div>
+
+        <div class="row mt-4 justify-content-center">
+            <div class="col-md-10">
+                <div class="menu-container">
+
+                    <!-- Create View -->
+                    <div id="create-view" class="d-none">
+                        <h4><i class="bi bi-person-plus"></i> Registrar Nuevo Paciente</h4>
+                        <form id="create-paciente-form" class="mt-4">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="title">Nombre</label>
+                                    <input type="text" name="nom_persona" class="form-control" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="title">Apellido</label>
+                                    <input type="text" name="apellido_persona" class="form-control" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="title">Tipo Documento</label>
+                                    <select name="tipo_doc" class="form-select">
+                                        <option value="CC">Cédula de Ciudadanía</option>
+                                        <option value="TI">Tarjeta de Identidad</option>
+                                        <option value="CE">Cédula de Extranjería</option>
+                                        <option value="PA">Pasaporte</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="title">Número Documento</label>
+                                    <input type="text" name="num_doc" class="form-control" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="title">Fecha Nacimiento</label>
+                                    <input type="date" name="fecha_nac" class="form-control" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="title">Género</label>
+                                    <select name="genero" class="form-select">
+                                        <option value="M">Masculino</option>
+                                        <option value="F">Femenino</option>
+                                        <option value="O">Otro</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-8 mb-3">
+                                    <label class="title">Dirección</label>
+                                    <input type="text" name="dir_persona" class="form-control">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="title">Teléfono</label>
+                                    <input type="text" name="tel_persona" class="form-control">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="title">Email</label>
+                                    <input type="email" name="email_persona" class="form-control" required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="title">Ciudad</label>
+                                    <input type="text" name="ciudad_residencia" class="form-control">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3">
+                                <i class="bi bi-check-circle"></i> Registrar Paciente
+                            </button>
+                            <button type="button" onclick="showList()" class="btn btn-secondary mt-3">Cancelar</button>
+                        </form>
+                    </div>
+
+                    <!-- Detail View -->
+                    <div id="detail-view" class="d-none">
+                        <h4><i class="bi bi-person"></i> Detalle del Paciente</h4>
+                        <div class="row mt-4">
+                            <div class="col-md-6">
+                                <p class="title">Nombre: <span class="text" id="detail-nombre"></span></p>
+                                <p class="title">Documento: <span class="text" id="detail-documento"></span></p>
+                                <p class="title">Fecha Nacimiento: <span class="text" id="detail-fecha"></span></p>
+                                <p class="title">Género: <span class="text" id="detail-genero"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p class="title">Dirección: <span class="text" id="detail-direccion"></span></p>
+                                <p class="title">Teléfono: <span class="text" id="detail-telefono"></span></p>
+                                <p class="title">Email: <span class="text" id="detail-email"></span></p>
+                                <p class="title">Ciudad: <span class="text" id="detail-ciudad"></span></p>
+                            </div>
+                        </div>
+                        <div class="mt-3 menu">
+                            <button onclick="showList()" class="btn btn-secondary"><i class="bi bi-arrow-left"></i>
+                                Volver</button>
+                            <!-- Edit button here if needed -->
+                        </div>
+
+                        <!-- Historial Citas -->
+                        <h4 class="mt-4"><i class="bi bi-calendar"></i> Historial de Citas</h4>
+                        <table class="table mt-3" style="font-family: 'Pixelify Sans';">
+                            <thead>
+                                <tr class="title">
+                                    <th>ID</th>
+                                    <th>Fecha</th>
+                                    <th>Servicio</th>
+                                    <th>Estado</th>
+                                    <th>Médico</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historial-table-body">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- List View -->
+                    <div id="list-view">
+                        <h4><i class="bi bi-people"></i> Gestión de Pacientes</h4>
+                        <div class="row mt-3">
+                            <div class="col-md-8">
+                                <form id="search-form" class="d-flex">
+                                    <input type="text" id="search-input" class="form-control"
+                                        placeholder="Buscar por nombre o documento...">
+                                    <button type="submit" class="btn btn-primary ms-2"><i
+                                            class="bi bi-search"></i></button>
+                                </form>
+                            </div>
+                            <div class="col-md-4 text-end role-restricted" data-roles="Administrativo,Administrador">
+                                <button onclick="showCreate()" class="btn btn-success">
+                                    <i class="bi bi-person-plus"></i> Nuevo Paciente
+                                </button>
+                            </div>
+                        </div>
+
+                        <table class="table mt-4" style="font-family: 'Pixelify Sans';">
+                            <thead>
+                                <tr class="title">
+                                    <th>Código</th>
+                                    <th>Nombre</th>
+                                    <th>Documento</th>
+                                    <th>Teléfono</th>
+                                    <th>Email</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pacientes-table-body">
+                                <tr>
+                                    <td colspan="6" class="text-center">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+    <script src="../js/pacientes.js"></script>
+</body>
+
+</html>

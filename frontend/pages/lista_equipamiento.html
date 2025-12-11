@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIS+ Sistema Hospitalario - Equipamiento</title>
+    <meta name="description" content="Sistema Hospitalario Integral">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row py-3 app-header">
+            <div class="col-md-6">
+                <a href="menu.html" class="text-white text-decoration-none"
+                    style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                    <i class="bi bi-hospital"></i> HIS+ | Equipamiento
+                </a>
+            </div>
+            <div class="col-md-6 text-end">
+                <a href="menu.html" class="exit"><i class="bi bi-arrow-left"></i> Menú</a>
+                <a href="index.html" class="exit ms-3"><i class="bi bi-box-arrow-right"></i> Salir</a>
+            </div>
+        </div>
+
+        <div id="messages-container" class="row mt-2"></div>
+
+        <div class="row mt-4 justify-content-center">
+            <div class="col-md-11">
+                <div class="menu-container">
+
+                    <!-- List View -->
+                    <div id="list-view">
+                        <h4><i class="bi bi-gear"></i> Gestión de Equipamiento</h4>
+                        <div class="row mt-3 mb-3 role-restricted" data-roles="Administrador">
+                            <div class="col text-end">
+                                <button onclick="showCreate()" class="btn btn-success"><i class="bi bi-plus-circle"></i>
+                                    Nuevo Equipo</button>
+                            </div>
+                        </div>
+
+                        <table class="table mt-3" style="font-family: 'Pixelify Sans';">
+                            <thead>
+                                <tr class="title">
+                                    <th>Nombre</th>
+                                    <th>Marca</th>
+                                    <th>Sede</th>
+                                    <th>Departamento</th>
+                                    <th>Estado</th>
+                                    <th>Últ. Mant.</th>
+                                    <th>Responsable</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="equipos-table-body">
+                                <!-- JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Create View -->
+                    <div id="create-view" class="d-none">
+                        <h4><i class="bi bi-plus-circle"></i> Registrar Nuevo Equipo</h4>
+                        <form id="create-equipo-form" class="mt-4 identification">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="title">Nombre del Equipo</label>
+                                    <input type="text" name="nom_eq" class="form-control" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="title">Marca y Modelo</label>
+                                    <input type="text" name="marca_modelo" class="form-control">
+                                </div>
+                                <!-- Department field removed - will use user's department -->
+                                <div class="col-md-6 mb-3">
+                                    <label class="title">Estado</label>
+                                    <select name="estado_equipo" class="form-select" required>
+                                        <option value="OPERATIVO">Operativo</option>
+                                        <option value="MANTENIMIENTO">En Mantenimiento</option>
+                                        <option value="FUERA_SERVICIO">Fuera de Servicio</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="title">Fecha Último Mantenimiento</label>
+                                    <input type="date" name="fecha_ultimo_maint" class="form-control">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3"><i class="bi bi-check-circle"></i>
+                                Registrar</button>
+                            <button type="button" onclick="showList()" class="btn btn-secondary mt-3">Cancelar</button>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+    <script src="../js/equipamiento.js"></script>
+</body>
+
+</html>

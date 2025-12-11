@@ -9,32 +9,7 @@ from django.db import connection
 from datetime import datetime, date
 import re
 
-# ============================================================================
-# FUNCIONES HELPER PARA CONSULTAS SQL
-# ============================================================================
-
-def ejecutar_query(query, params=None):
-    """Ejecuta una query y retorna los resultados"""
-    with connection.cursor() as cursor:
-        cursor.execute(query, params or [])
-        return cursor.fetchall()
-
-
-def ejecutar_query_one(query, params=None):
-    """Ejecuta una query y retorna un solo resultado"""
-    with connection.cursor() as cursor:
-        cursor.execute(query, params or [])
-        return cursor.fetchone()
-
-
-def obtener_choices_from_db(query, params=None):
-    """
-    Ejecuta una query y retorna choices para un campo Select.
-    La query debe retornar (id, nombre)
-    """
-    results = ejecutar_query(query, params)
-    return [(row[0], row[1]) for row in results]
-
+from .db_utils import ejecutar_query, ejecutar_query_one, obtener_choices_from_db
 
 # ============================================================================
 # 1. FORMULARIOS DE AUTENTICACIÓN
@@ -310,14 +285,56 @@ class CitaForm(forms.Form):
         widget=forms.Select(attrs={'class': 'form-select'})
     )
     
-    def __init__(self, id_sede, *args, **kwargs):
+    id_sede_field = forms.ChoiceField(
+        label='Sede',
+        widget=forms.Select(attrs={'class': 'form-select', 'id': 'id_sede_select'}),
+        required=False
+    )
+
+    def __init__(self, id_sede=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id_sede = id_sede
         
-        # Cargar opciones dinámicamente desde la BD
+        # Detectar si hay datos POST para manejar cascada
+        data = args[0] if args else kwargs.get('data')
+        
+        # Determinar Sede seleccionada
+        selected_sede_id = None
+        if self.id_sede:
+            selected_sede_id = self.id_sede
+        elif data and data.get('id_sede_field'):
+            selected_sede_id = data.get('id_sede_field')
+            
+        # Determinar Dept seleccionado
+        selected_dept_id = data.get('id_dept') if data else None
+
+        # Cargar sedes (siempre necesario para el dropdown de sede)
+        self._cargar_sedes()
+        
+        # Configurar campo Sede
+        if self.id_sede:
+            self.fields['id_sede_field'].initial = self.id_sede
+            self.fields['id_sede_field'].widget.attrs['disabled'] = 'disabled'
+            # Si es usuario local, no necesita seleccionar sede, pero los depts dependen de esa sede fija
+        
+        # Cargar departamentos (depende de Sede)
+        self._cargar_departamentos(selected_sede_id)
+        
+        # Cargar médicos (depende de Dept y Sede)
+        self._cargar_medicos(selected_sede_id, selected_dept_id)
+
         self._cargar_pacientes()
-        self._cargar_medicos(id_sede)
-        self._cargar_departamentos(id_sede)
+    
+    def _cargar_sedes(self):
+        query = "SELECT id_sede, nom_sede FROM Sedes_Hospitalarias ORDER BY nom_sede"
+        choices = obtener_choices_from_db(query)
+        self.fields['id_sede_field'].choices = choices
+        
+    def clean_id_sede_field(self):
+        # Si el campo esta deshabilitado, usar self.id_sede
+        if self.id_sede:
+            return self.id_sede
+        return self.cleaned_data.get('id_sede_field')
     
     def _cargar_pacientes(self):
         """Cargar lista de pacientes"""
@@ -331,32 +348,40 @@ class CitaForm(forms.Form):
         choices = obtener_choices_from_db(query)
         self.fields['cod_pac'].widget.choices = [('', 'Seleccione un paciente')] + choices
     
-    def _cargar_medicos(self, id_sede):
-        """Cargar lista de médicos de la sede"""
-        query = """
-            SELECT e.id_emp, 
-                   p.nom_persona || ' ' || p.apellido_persona as nombre_completo
-            FROM Empleados e
-            INNER JOIN Personas p ON e.id_persona = p.id_persona
-            INNER JOIN Roles r ON e.id_rol = r.id_rol
-            WHERE r.nombre_rol = 'Medico' 
-            AND e.id_sede = %s 
-            AND e.activo = TRUE
-            ORDER BY p.apellido_persona, p.nom_persona
-        """
-        choices = obtener_choices_from_db(query, [id_sede])
-        self.fields['id_emp'].widget.choices = [('', 'Seleccione un médico')] + choices
-    
+    def _cargar_medicos(self, id_sede, id_dept):
+        """Cargar lista de médicos filtrados por sede y departamento"""
+        if id_sede and id_dept:
+            query = """
+                SELECT e.id_emp, 
+                       p.nom_persona || ' ' || p.apellido_persona as nombre_completo
+                FROM Empleados e
+                INNER JOIN Personas p ON e.id_persona = p.id_persona
+                INNER JOIN Roles r ON e.id_rol = r.id_rol
+                WHERE r.nombre_rol = 'Medico' 
+                AND e.id_sede = %s AND e.id_dept = %s
+                AND e.activo = TRUE
+                ORDER BY p.apellido_persona, p.nom_persona
+            """
+            params = [id_sede, id_dept]
+            choices = obtener_choices_from_db(query, params)
+            self.fields['id_emp'].widget.choices = [('', 'Seleccione un médico')] + choices
+        else:
+            self.fields['id_emp'].widget.choices = [('', 'Seleccione un departamento primero')]
+
     def _cargar_departamentos(self, id_sede):
-        """Cargar departamentos de la sede"""
-        query = """
-            SELECT id_dept, nom_dept
-            FROM Departamentos
-            WHERE id_sede = %s
-            ORDER BY nom_dept
-        """
-        choices = obtener_choices_from_db(query, [id_sede])
-        self.fields['id_dept'].widget.choices = [('', 'Seleccione un departamento')] + choices
+        """Cargar departamentos filtrados por sede"""
+        if id_sede:
+            query = """
+                SELECT id_dept, nom_dept
+                FROM Departamentos
+                WHERE id_sede = %s
+                ORDER BY nom_dept
+            """
+            params = [id_sede]
+            choices = obtener_choices_from_db(query, params)
+            self.fields['id_dept'].widget.choices = [('', 'Seleccione un departamento')] + choices
+        else:
+             self.fields['id_dept'].widget.choices = [('', 'Seleccione una sede primero')]
     
     def clean_fecha_hora(self):
         fecha = self.cleaned_data.get('fecha_hora')

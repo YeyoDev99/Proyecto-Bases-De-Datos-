@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HIS+ Sistema Hospitalario - Citas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <main>
+        <div class="container-fluid">
+            <!-- Header -->
+            <div class="row py-3 app-header">
+                <div class="col-md-6">
+                    <span class="text-white" style="font-family: 'Pixelify Sans'; font-size: 1.5rem;">
+                        <i class="bi bi-hospital"></i> HIS+ | <span id="header-user-name">Usuario</span>
+                    </span>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="text-white" style="font-family: 'Pixelify Sans';">
+                        <span id="header-user-role">Rol</span> - Sede: <span id="header-user-sede">Sede</span>
+                    </span>
+                    <a href="index.html" class="exit ms-3">
+                        <i class="bi bi-box-arrow-right"></i> Salir
+                    </a>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <!-- Sidebar -->
+                <div class="col-md-3">
+                    <div class="menu-container">
+                        <h4><i class="bi bi-grid-3x3-gap"></i> Menú</h4>
+                        <div class="menu d-flex flex-column gap-2" id="sidebar-menu">
+                            <a href="menu.html" class="p-2"><i class="bi bi-house"></i> Inicio</a>
+                            <a href="gestion_pacientes.html" class="p-2"><i class="bi bi-people"></i> Pacientes</a>
+                            <a href="lista_citas.html" class="p-2"><i class="bi bi-calendar-check"></i> Citas</a>
+                            <a href="lista_historias.html" class="p-2"><i class="bi bi-file-medical"></i> Historias
+                                Clínicas</a>
+                            <a href="lista_prescripciones.html" class="p-2"><i class="bi bi-prescription2"></i>
+                                Prescripciones</a>
+                            <a href="inventario_farmacia.html" class="p-2"><i class="bi bi-capsule"></i> Farmacia</a>
+                            <a href="lista_equipamiento.html" class="p-2"><i class="bi bi-gear"></i> Equipamiento</a>
+                            <a href="menu_reportes.html" class="p-2"><i class="bi bi-graph-up"></i> Reportes</a>
+                            <a href="perfil.html" class="p-2"><i class="bi bi-person-circle"></i> Mi Perfil</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="col-md-9">
+                    <div class="container-fluid bg-white p-4 rounded shadow-sm">
+
+                        <!-- List View -->
+                        <div id="citas-list-view">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h2 class="title" style="color: var(--primary-color);"><i
+                                        class="bi bi-calendar-check"></i> Gestión
+                                    de Citas</h2>
+                                <a href="nueva_cita.html" class="btn text-white" style="background-color: #4acabb;">
+                                    <i class="bi bi-plus-circle"></i> Nueva Cita
+                                </a>
+                            </div>
+
+                            <!-- Filters -->
+                            <div class="mb-3">
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-outline-secondary filter-btn"
+                                        data-filter="todas">Todas</button>
+                                    <button type="button" class="btn btn-outline-warning filter-btn"
+                                        data-filter="programada">Programadas</button>
+                                    <button type="button" class="btn btn-outline-success filter-btn"
+                                        data-filter="completada">Completadas</button>
+                                    <button type="button" class="btn btn-outline-danger filter-btn"
+                                        data-filter="cancelada">Canceladas</button>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-hover mt-3" style="font-family: 'Pixelify Sans';">
+                                    <thead class="table-light">
+                                        <tr class="title">
+                                            <th>ID</th>
+                                            <th>Fecha/Hora</th>
+                                            <th>Paciente</th>
+                                            <th>Servicio</th>
+                                            <th>Estado</th>
+                                            <th>Motivo</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="citas-table-body">
+                                        <!-- Populated via JS -->
+                                        <tr>
+                                            <td colspan="7" class="text-center">Cargando citas...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Detail View (Hidden by default) -->
+                        <div id="cita-detail-view" class="d-none">
+                            <div class="card">
+                                <div
+                                    class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                    <h4 class="mb-0">Detalle de Cita #<span id="detail-id"></span></h4>
+                                    <button onclick="goBack()" class="btn btn-sm btn-light">Volver</button>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <p><strong>Paciente:</strong> <span id="detail-paciente"></span></p>
+                                            <p><strong>Médico:</strong> <span id="detail-medico"></span></p>
+                                            <p><strong>Sede:</strong> <span id="detail-sede"></span></p>
+                                            <p><strong>Departamento:</strong> <span id="detail-departamento"></span></p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p><strong>Fecha:</strong> <span id="detail-fecha"></span></p>
+                                            <p><strong>Servicio:</strong> <span id="detail-servicio"></span></p>
+                                            <p><strong>Estado:</strong> <span id="detail-estado"></span></p>
+                                            <p><strong>Motivo:</strong> <span id="detail-motivo"></span></p>
+                                        </div>
+                                    </div>
+                                    <div id="detail-actions" class="border-top pt-3">
+                                        <!-- Actions injected via JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Re-use menu.js for common header/sidebar logic logic -->
+    <script src="../js/menu.js"></script>
+    <!-- Citas specific logic -->
+    <script src="../js/citas.js"></script>
+</body>
+
+</html>
